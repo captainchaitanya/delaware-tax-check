@@ -241,6 +241,12 @@ function DeadlineRow({
         <p className="mt-1 font-mono text-sm tabular-nums text-muted">
           {formatCivilDate(item.date)}
         </p>
+        {item.effectiveDate ? (
+          <p className="mt-0.5 text-sm text-muted">
+            Effective date: {formatCivilDate(item.effectiveDate)}, next business
+            day
+          </p>
+        ) : null}
       </div>
       <div className="flex flex-col items-end gap-1">
         <StatusChip status={item.status} done={done} />
@@ -392,6 +398,17 @@ function DeadlineDrawer({
         <p className="mt-2 font-mono tabular-nums text-muted">
           {formatCivilDate(item.date)} · {item.jurisdiction}
         </p>
+        {item.effectiveDate ? (
+          <p className="mt-1 text-sm text-muted">
+            Effective date: {formatCivilDate(item.effectiveDate)}, next business
+            day
+          </p>
+        ) : null}
+        {item.rollConvention === "unknown" ? (
+          <p className="mt-2 text-sm text-muted">
+            Weekend/holiday handling not yet verified. Plan for the stated date.
+          </p>
+        ) : null}
         <div className="mt-3 flex flex-wrap gap-2">
           <StatusChip status={item.status} done={draftDone} />
           <UnverifiedBadge />

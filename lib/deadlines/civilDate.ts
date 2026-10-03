@@ -117,7 +117,7 @@ export function isWeekend(date: CivilDate): boolean {
 
 export function civilDateInTimeZone(
   instant: Date,
-  timeZone: TimeZoneId,
+  timeZone: TimeZoneId | "America/Los_Angeles",
 ): CivilDate {
   const parts = new Intl.DateTimeFormat("en-US", {
     timeZone,

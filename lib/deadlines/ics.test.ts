@@ -9,7 +9,14 @@ describe("deadlinesToIcs", () => {
     const ics = deadlinesToIcs(items);
     expect(ics.startsWith("BEGIN:VCALENDAR")).toBe(true);
     expect(ics).toContain("DTSTART;VALUE=DATE:");
+    expect(ics).toMatch(/DTSTART;VALUE=DATE:\d{8}/);
+    expect(ics).not.toMatch(/DTSTART[^:\r\n]*:\d{8}T/);
     expect(ics).toContain(items[0]?.title ?? "missing");
     expect(ics).toContain("END:VCALENDAR");
+    for (const item of items) {
+      expect(ics).toContain(
+        `DTSTART;VALUE=DATE:${item.isoDate.replaceAll("-", "")}`,
+      );
+    }
   });
 });

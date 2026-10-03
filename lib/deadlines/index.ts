@@ -12,4 +12,4 @@ export {
 } from "./civilDate";
 export { generateDeadlines, type GeneratedDeadline, type DeadlineStatus } from "./generate";
 export { deadlinesToIcs } from "./ics";
-export { DEADLINE_RULES, type Jurisdiction } from "./rules";
+export { DEADLINE_RULES, type Jurisdiction, type RollConvention } from "./rules";

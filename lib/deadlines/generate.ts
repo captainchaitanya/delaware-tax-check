@@ -17,6 +17,7 @@ import {
   ruleApplies,
   type DeadlineRule,
   type Jurisdiction,
+  type RollConvention,
 } from "./rules";
 
 export type DeadlineStatus = "overdue" | "thisWeek" | "thisMonth" | "later";
@@ -37,6 +38,9 @@ export type GeneratedDeadline = {
   lastVerified: null;
   status: DeadlineStatus;
   amountDollars: number | null;
+  rollConvention: RollConvention;
+  effectiveDate: CivilDate | null;
+  effectiveIsoDate: string | null;
 };
 
 export type GenerateOptions = {
@@ -94,11 +98,15 @@ function clampDay(year: number, month: number, day: number): CivilDate {
   return { year, month, day: Math.min(day, daysInMonth(year, month)) };
 }
 
-function applyRoll(date: CivilDate, rule: DeadlineRule): CivilDate {
-  if (rule.rollWeekend === "next-weekday") {
-    return nextBusinessDay(date, rule.timeZone);
+function effectiveFor(
+  statutory: CivilDate,
+  convention: RollConvention,
+): CivilDate | null {
+  if (convention !== "next_business_day") {
+    return null;
   }
-  return date;
+  const next = nextBusinessDay(statutory);
+  return compareCivilDates(next, statutory) === 0 ? null : next;
 }
 
 function rawDatesForRule(
@@ -222,17 +230,16 @@ export function generateDeadlines(
     (rule) => rule.schedule.kind === "relative",
   );
 
-  const rolledByRule = new Map<string, CivilDate[]>();
+  const statutoryByRule = new Map<string, CivilDate[]>();
   const items: GeneratedDeadline[] = [];
 
   function pushRule(rule: DeadlineRule) {
-    const raw = rawDatesForRule(rule, profile, today, rolledByRule);
-    const rolled = raw.map((date) => applyRoll(date, rule));
-    rolledByRule.set(rule.id, rolled);
+    const statutory = rawDatesForRule(rule, profile, today, statutoryByRule);
+    statutoryByRule.set(rule.id, statutory);
 
     if (rule.schedule.kind === "perDirector") {
       const count = profile.india?.directorCount ?? 1;
-      rolled.forEach((date, index) => {
+      statutory.forEach((date, index) => {
         const director = (index % count) + 1;
         pushItem(rule, date, `${rule.id}:${toIsoDate(date)}:d${director}`, `${rule.title} — Director ${director}`);
       });
@@ -240,7 +247,7 @@ export function generateDeadlines(
     }
 
     const seen = new Set<string>();
-    for (const date of rolled) {
+    for (const date of statutory) {
       const iso = toIsoDate(date);
       if (seen.has(iso)) {
         continue;
@@ -262,6 +269,7 @@ export function generateDeadlines(
     ) {
       return;
     }
+    const effectiveDate = effectiveFor(date, rule.rollConvention);
     items.push({
       id,
       ruleId: rule.id,
@@ -278,6 +286,9 @@ export function generateDeadlines(
       lastVerified: null,
       status: statusFor(date, today),
       amountDollars: amountFor(rule, estimate),
+      rollConvention: rule.rollConvention,
+      effectiveDate,
+      effectiveIsoDate: effectiveDate ? toIsoDate(effectiveDate) : null,
     });
   }
 

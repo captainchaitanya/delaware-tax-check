@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { SAMPLE_PROFILE } from "../profile";
-import { weekday } from "./civilDate";
+import { civilDateInTimeZone, weekday } from "./civilDate";
 import { generateDeadlines } from "./generate";
-import { DEADLINE_RULES } from "./rules";
+import { DEADLINE_RULES, type DeadlineRule } from "./rules";
 
 const TODAY = { year: 2026, month: 10, day: 3 };
 
@@ -43,13 +43,156 @@ describe("generateDeadlines", () => {
     expect(domestic.some((item) => item.ruleId === "us-5472")).toBe(false);
   });
 
-  it("rolls a weekend Delaware date to the next weekday", () => {
+  it("keeps the statutory Delaware March 1 date on a Sunday", () => {
     expect(weekday({ year: 2026, month: 3, day: 1 })).toBe(0);
-    const items = generateDeadlines(SAMPLE_PROFILE, { year: 2026, month: 1, day: 15 });
+    const items = generateDeadlines(SAMPLE_PROFILE, {
+      year: 2026,
+      month: 1,
+      day: 15,
+    });
     const annual = items.find(
       (item) => item.ruleId === "de-franchise-annual" && item.date.year === 2026,
     );
-    expect(annual?.isoDate).toBe("2026-03-02");
+    expect(annual?.isoDate).toBe("2026-03-01");
+    expect(annual?.effectiveDate).toBeNull();
+    expect(annual?.rollConvention).toBe("unknown");
+  });
+
+  it("does not shift statutory deadlines for IST or US Pacific instants near midnight", () => {
+    const justBeforeIstMidnight = new Date("2026-02-28T18:29:00.000Z");
+    const justAfterIstMidnight = new Date("2026-02-28T18:30:00.000Z");
+    const justBeforePstMidnight = new Date("2026-03-01T07:59:00.000Z");
+    const justAfterPstMidnight = new Date("2026-03-01T08:00:00.000Z");
+
+    expect(civilDateInTimeZone(justBeforeIstMidnight, "Asia/Kolkata")).toEqual({
+      year: 2026,
+      month: 2,
+      day: 28,
+    });
+    expect(civilDateInTimeZone(justAfterIstMidnight, "Asia/Kolkata")).toEqual({
+      year: 2026,
+      month: 3,
+      day: 1,
+    });
+    expect(
+      civilDateInTimeZone(justBeforePstMidnight, "America/Los_Angeles"),
+    ).toEqual({ year: 2026, month: 2, day: 28 });
+    expect(
+      civilDateInTimeZone(justAfterPstMidnight, "America/Los_Angeles"),
+    ).toEqual({ year: 2026, month: 3, day: 1 });
+
+    const todays = [
+      civilDateInTimeZone(justBeforeIstMidnight, "Asia/Kolkata"),
+      civilDateInTimeZone(justAfterIstMidnight, "Asia/Kolkata"),
+      civilDateInTimeZone(justBeforePstMidnight, "America/Los_Angeles"),
+      civilDateInTimeZone(justAfterPstMidnight, "America/Los_Angeles"),
+    ];
+
+    for (const today of todays) {
+      const annual = generateDeadlines(SAMPLE_PROFILE, today).find(
+        (item) =>
+          item.ruleId === "de-franchise-annual" && item.date.year === 2026,
+      );
+      expect(annual?.isoDate).toBe("2026-03-01");
+    }
+  });
+
+  it("classifies the Delaware March 1 deadline from a late-February today", () => {
+    const thisWeek = generateDeadlines(SAMPLE_PROFILE, {
+      year: 2026,
+      month: 2,
+      day: 26,
+    }).find(
+      (item) => item.ruleId === "de-franchise-annual" && item.date.year === 2026,
+    );
+    expect(thisWeek?.isoDate).toBe("2026-03-01");
+    expect(thisWeek?.status).toBe("thisWeek");
+
+    const later = generateDeadlines(SAMPLE_PROFILE, {
+      year: 2026,
+      month: 2,
+      day: 10,
+    }).find(
+      (item) => item.ruleId === "de-franchise-annual" && item.date.year === 2026,
+    );
+    expect(later?.isoDate).toBe("2026-03-01");
+    expect(later?.status).toBe("later");
+  });
+
+  it("keeps a Saturday date when rollConvention is none", () => {
+    expect(weekday({ year: 2026, month: 1, day: 31 })).toBe(6);
+    const items = generateDeadlines(SAMPLE_PROFILE, {
+      year: 2026,
+      month: 1,
+      day: 15,
+    });
+    const tds = items.find(
+      (item) => item.ruleId === "in-tds" && item.isoDate === "2026-01-31",
+    );
+    expect(tds?.isoDate).toBe("2026-01-31");
+    expect(tds?.effectiveDate).toBeNull();
+    expect(tds?.rollConvention).toBe("none");
+  });
+
+  it("records a next business day without changing the statutory IRS date", () => {
+    expect(weekday({ year: 2026, month: 1, day: 31 })).toBe(6);
+    const items = generateDeadlines(
+      { ...SAMPLE_PROFILE, paysUsContractors: true },
+      {
+        year: 2026,
+        month: 1,
+        day: 15,
+      },
+    );
+    const nec = items.find(
+      (item) => item.ruleId === "us-1099-nec" && item.date.year === 2026,
+    );
+    expect(nec?.isoDate).toBe("2026-01-31");
+    expect(nec?.effectiveIsoDate).toBe("2026-02-02");
+    expect(nec?.status).toBe("thisMonth");
+  });
+
+  it("assigns the initial per-rule roll conventions", () => {
+    const convention = Object.fromEntries(
+      DEADLINE_RULES.map((rule) => [rule.id, rule.rollConvention]),
+    );
+    expect(convention["us-1120"]).toBe("next_business_day");
+    expect(convention["us-5472"]).toBe("next_business_day");
+    expect(convention["us-1099-nec"]).toBe("next_business_day");
+    expect(convention["de-franchise-annual"]).toBe("unknown");
+    expect(convention["de-franchise-q-jun"]).toBe("unknown");
+    expect(
+      DEADLINE_RULES.filter((rule) => rule.jurisdiction === "India").every(
+        (rule) => rule.rollConvention === "none",
+      ),
+    ).toBe(true);
+    expect(DEADLINE_RULES.every((rule) => rule.verified === false)).toBe(true);
+  });
+
+  it("does not use an effective date for sorting or chips", () => {
+    const saturdayRule: DeadlineRule = {
+      id: "test-saturday-none",
+      title: "Saturday none",
+      jurisdiction: "India",
+      timeZone: "Asia/Kolkata",
+      appliesTo: { type: "always" },
+      appliesLabel: "Test",
+      schedule: { kind: "fixed", month: 1, day: 31 },
+      whatThisIs: "Test",
+      ifMissed: "Test",
+      sourceUrl: "https://example.com",
+      verified: false,
+      lastVerified: null,
+      rollConvention: "none",
+    };
+    const items = generateDeadlines(
+      SAMPLE_PROFILE,
+      { year: 2026, month: 1, day: 15 },
+      { rules: [saturdayRule] },
+    );
+    expect(items[0]?.isoDate).toBe("2026-01-31");
+    expect(weekday(items[0]!.date)).toBe(6);
+    expect(items[0]?.effectiveDate).toBeNull();
   });
 
   it("places Form 1120 on the 15th of the 4th month after US year end", () => {
@@ -73,7 +216,7 @@ describe("generateDeadlines", () => {
     );
     expect(agm?.isoDate).toBe("2026-09-30");
     expect(aoc?.isoDate).toBe("2026-10-30");
-    expect(mgt?.isoDate).toBe("2026-11-30");
+    expect(mgt?.isoDate).toBe("2026-11-29");
   });
 
   it("skips quarterly Delaware estimates when tax is under $5,000", () => {

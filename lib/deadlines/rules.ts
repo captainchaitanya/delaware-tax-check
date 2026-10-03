@@ -38,8 +38,10 @@ export type DeadlineRule = {
   sourceUrl: string;
   verified: false;
   lastVerified: null;
-  rollWeekend: "none" | "next-weekday";
+  rollConvention: RollConvention;
 };
+
+export type RollConvention = "next_business_day" | "none" | "unknown";
 
 const US: TimeZoneId = "America/New_York";
 const IN: TimeZoneId = "Asia/Kolkata";
@@ -60,7 +62,7 @@ export const DEADLINE_RULES: DeadlineRule[] = [
     sourceUrl: "https://corp.delaware.gov",
     verified: false,
     lastVerified: null,
-    rollWeekend: "next-weekday",
+    rollConvention: "unknown",
   },
   {
     id: "de-franchise-q-jun",
@@ -75,7 +77,7 @@ export const DEADLINE_RULES: DeadlineRule[] = [
     sourceUrl: "https://corp.delaware.gov",
     verified: false,
     lastVerified: null,
-    rollWeekend: "next-weekday",
+    rollConvention: "unknown",
   },
   {
     id: "de-franchise-q-sep",
@@ -90,7 +92,7 @@ export const DEADLINE_RULES: DeadlineRule[] = [
     sourceUrl: "https://corp.delaware.gov",
     verified: false,
     lastVerified: null,
-    rollWeekend: "next-weekday",
+    rollConvention: "unknown",
   },
   {
     id: "de-franchise-q-dec",
@@ -105,7 +107,7 @@ export const DEADLINE_RULES: DeadlineRule[] = [
     sourceUrl: "https://corp.delaware.gov",
     verified: false,
     lastVerified: null,
-    rollWeekend: "next-weekday",
+    rollConvention: "unknown",
   },
   {
     id: "us-1120",
@@ -121,7 +123,7 @@ export const DEADLINE_RULES: DeadlineRule[] = [
     sourceUrl: "https://www.irs.gov/forms-pubs/about-form-1120",
     verified: false,
     lastVerified: null,
-    rollWeekend: "next-weekday",
+    rollConvention: "next_business_day",
   },
   {
     id: "us-5472",
@@ -137,7 +139,7 @@ export const DEADLINE_RULES: DeadlineRule[] = [
     sourceUrl: "https://www.irs.gov/forms-pubs/about-form-5472",
     verified: false,
     lastVerified: null,
-    rollWeekend: "next-weekday",
+    rollConvention: "next_business_day",
   },
   {
     id: "us-1099-nec",
@@ -153,7 +155,7 @@ export const DEADLINE_RULES: DeadlineRule[] = [
     sourceUrl: "https://www.irs.gov/forms-pubs/about-form-1099-nec",
     verified: false,
     lastVerified: null,
-    rollWeekend: "next-weekday",
+    rollConvention: "next_business_day",
   },
   {
     id: "in-agm",
@@ -169,7 +171,7 @@ export const DEADLINE_RULES: DeadlineRule[] = [
     sourceUrl: "https://www.mca.gov.in",
     verified: false,
     lastVerified: null,
-    rollWeekend: "next-weekday",
+    rollConvention: "none",
   },
   {
     id: "in-aoc4",
@@ -184,7 +186,7 @@ export const DEADLINE_RULES: DeadlineRule[] = [
     sourceUrl: "https://www.mca.gov.in",
     verified: false,
     lastVerified: null,
-    rollWeekend: "next-weekday",
+    rollConvention: "none",
   },
   {
     id: "in-mgt7",
@@ -199,7 +201,7 @@ export const DEADLINE_RULES: DeadlineRule[] = [
     sourceUrl: "https://www.mca.gov.in",
     verified: false,
     lastVerified: null,
-    rollWeekend: "next-weekday",
+    rollConvention: "none",
   },
   {
     id: "in-itr",
@@ -215,7 +217,7 @@ export const DEADLINE_RULES: DeadlineRule[] = [
     sourceUrl: "https://www.incometax.gov.in",
     verified: false,
     lastVerified: null,
-    rollWeekend: "next-weekday",
+    rollConvention: "none",
   },
   {
     id: "in-dir3-kyc",
@@ -230,7 +232,7 @@ export const DEADLINE_RULES: DeadlineRule[] = [
     sourceUrl: "https://www.mca.gov.in",
     verified: false,
     lastVerified: null,
-    rollWeekend: "next-weekday",
+    rollConvention: "none",
   },
   {
     id: "in-fla",
@@ -246,7 +248,7 @@ export const DEADLINE_RULES: DeadlineRule[] = [
     sourceUrl: "https://www.rbi.org.in",
     verified: false,
     lastVerified: null,
-    rollWeekend: "next-weekday",
+    rollConvention: "none",
   },
   {
     id: "in-tds",
@@ -269,7 +271,7 @@ export const DEADLINE_RULES: DeadlineRule[] = [
     sourceUrl: "https://www.incometax.gov.in",
     verified: false,
     lastVerified: null,
-    rollWeekend: "next-weekday",
+    rollConvention: "none",
   },
   {
     id: "in-gstr1",
@@ -284,7 +286,7 @@ export const DEADLINE_RULES: DeadlineRule[] = [
     sourceUrl: "https://www.gst.gov.in",
     verified: false,
     lastVerified: null,
-    rollWeekend: "none",
+    rollConvention: "none",
   },
   {
     id: "in-gstr3b",
@@ -299,7 +301,7 @@ export const DEADLINE_RULES: DeadlineRule[] = [
     sourceUrl: "https://www.gst.gov.in",
     verified: false,
     lastVerified: null,
-    rollWeekend: "none",
+    rollConvention: "none",
   },
   {
     id: "in-odi-apr",
@@ -315,7 +317,7 @@ export const DEADLINE_RULES: DeadlineRule[] = [
     sourceUrl: "https://www.rbi.org.in",
     verified: false,
     lastVerified: null,
-    rollWeekend: "next-weekday",
+    rollConvention: "none",
   },
 ];
 

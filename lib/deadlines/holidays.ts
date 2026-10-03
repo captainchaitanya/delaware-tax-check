@@ -1,73 +1,97 @@
 /**
- * Candidate holiday lists. Every date is unverified.
- * verify against federalreserve.gov / india.gov.in before publishing
+ * US federal holidays computed by rule (OPM / Federal Reserve K8 style).
+ * Observed weekday shifts are included so next_business_day can skip them.
+ * India holidays are not modeled.
  */
 import {
   addDays,
+  daysInMonth,
   isWeekend,
   toIsoDate,
+  weekday,
   type CivilDate,
-  type TimeZoneId,
 } from "./civilDate";
 
 export const HOLIDAYS_META = {
   verified: false as const,
   lastVerified: null,
   usSourceUrl: "https://www.federalreserve.gov/aboutthefed/k8.htm",
-  indiaSourceUrl: "https://www.india.gov.in/calendar",
 };
 
-const US_HOLIDAYS = new Set([
-  "2026-01-01",
-  "2026-01-19",
-  "2026-02-16",
-  "2026-05-25",
-  "2026-06-19",
-  "2026-07-03",
-  "2026-09-07",
-  "2026-10-12",
-  "2026-11-11",
-  "2026-11-26",
-  "2026-12-25",
-  "2027-01-01",
-  "2027-01-18",
-  "2027-02-15",
-  "2027-05-31",
-  "2027-06-18",
-  "2027-07-05",
-  "2027-09-06",
-  "2027-10-11",
-  "2027-11-11",
-  "2027-11-25",
-  "2027-12-24",
-]);
-
-const INDIA_HOLIDAYS = new Set([
-  "2026-01-26",
-  "2026-03-04",
-  "2026-08-15",
-  "2026-10-02",
-  "2026-11-08",
-  "2026-12-25",
-  "2027-01-26",
-  "2027-08-15",
-  "2027-10-02",
-  "2027-12-25",
-]);
-
-export function isHoliday(date: CivilDate, timeZone: TimeZoneId): boolean {
-  const iso = toIsoDate(date);
-  return timeZone === "Asia/Kolkata"
-    ? INDIA_HOLIDAYS.has(iso)
-    : US_HOLIDAYS.has(iso);
+/** 0 = Sunday … 6 = Saturday */
+function nthWeekdayOfMonth(
+  year: number,
+  month: number,
+  dow: number,
+  n: number,
+): CivilDate {
+  const firstDow = weekday({ year, month, day: 1 });
+  const day = 1 + ((dow - firstDow + 7) % 7) + (n - 1) * 7;
+  return { year, month, day };
 }
 
-export function nextBusinessDay(
-  date: CivilDate,
-  timeZone: TimeZoneId,
+function lastWeekdayOfMonth(
+  year: number,
+  month: number,
+  dow: number,
 ): CivilDate {
+  const lastDay = daysInMonth(year, month);
+  const lastDow = weekday({ year, month, day: lastDay });
+  return { year, month, day: lastDay - ((lastDow - dow + 7) % 7) };
+}
+
+/** Calendar date plus Friday/Monday observed day when it falls on a weekend. */
+function observedDates(date: CivilDate): CivilDate[] {
+  const dow = weekday(date);
+  if (dow === 6) {
+    return [date, addDays(date, -1)];
+  }
+  if (dow === 0) {
+    return [date, addDays(date, 1)];
+  }
+  return [date];
+}
+
+function uniqueDates(dates: CivilDate[]): CivilDate[] {
+  const seen = new Set<string>();
+  const out: CivilDate[] = [];
+  for (const date of dates) {
+    const iso = toIsoDate(date);
+    if (seen.has(iso)) {
+      continue;
+    }
+    seen.add(iso);
+    out.push(date);
+  }
+  return out;
+}
+
+export function usFederalHolidays(year: number): CivilDate[] {
+  return uniqueDates([
+    ...observedDates({ year, month: 1, day: 1 }),
+    nthWeekdayOfMonth(year, 1, 1, 3),
+    nthWeekdayOfMonth(year, 2, 1, 3),
+    lastWeekdayOfMonth(year, 5, 1),
+    ...observedDates({ year, month: 6, day: 19 }),
+    ...observedDates({ year, month: 7, day: 4 }),
+    nthWeekdayOfMonth(year, 9, 1, 1),
+    nthWeekdayOfMonth(year, 10, 1, 2),
+    ...observedDates({ year, month: 11, day: 11 }),
+    nthWeekdayOfMonth(year, 11, 4, 4),
+    ...observedDates({ year, month: 12, day: 25 }),
+  ]);
+}
+
+export function isUsFederalHoliday(date: CivilDate): boolean {
+  const iso = toIsoDate(date);
+  return [date.year - 1, date.year, date.year + 1].some((year) =>
+    usFederalHolidays(year).some((holiday) => toIsoDate(holiday) === iso),
+  );
+}
+
+export function nextBusinessDay(date: CivilDate): CivilDate {
   let cursor = date;
-  while (isWeekend(cursor) || isHoliday(cursor, timeZone)) {
+  while (isWeekend(cursor) || isUsFederalHoliday(cursor)) {
     cursor = addDays(cursor, 1);
   }
   return cursor;
