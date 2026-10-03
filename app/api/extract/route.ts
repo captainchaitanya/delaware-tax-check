@@ -1,9 +1,11 @@
 import { QUOTA_EXHAUSTED_MESSAGE } from "@/lib/llm/errors";
 import { extractDocument } from "@/lib/llm/extract";
 import {
-  allowLiveExtraction,
-  allowRequest,
+  canLiveExtract,
   clientKeyFromRequest,
+  dailyLiveCap,
+  allowRequest,
+  recordLiveExtraction,
 } from "@/lib/llm/rateLimit";
 import { matchSampleDocument } from "@/lib/llm/samples";
 import { resolveProvider } from "@/lib/llm/selectProvider";
@@ -71,11 +73,15 @@ export async function POST(request: Request) {
     );
   }
 
-  if (live && !allowLiveExtraction()) {
+  const cap = dailyLiveCap();
+  if (live && !canLiveExtract(cap)) {
     return failure(429, "quota", QUOTA_EXHAUSTED_MESSAGE, resolution);
   }
 
   const outcome = await extractDocument(text);
+  if (live && outcome.ok) {
+    recordLiveExtraction(cap);
+  }
   const status = outcome.ok
     ? 200
     : outcome.code === "empty" ||

@@ -25,20 +25,40 @@ function utcDayKey(now: number): string {
   return new Date(now).toISOString().slice(0, 10);
 }
 
-export function allowLiveExtraction(
-  cap = DAILY_LIVE_CAP,
-  now = Date.now(),
-): boolean {
+function rollDay(now: number) {
   const day = utcDayKey(now);
   if (day !== liveDay) {
     liveDay = day;
     liveCount = 0;
   }
-  if (liveCount >= cap) {
-    return false;
+}
+
+export function dailyLiveCap(
+  env: Record<string, string | undefined> = process.env,
+): number {
+  const raw = Number(env.AI_DAILY_CAP);
+  if (Number.isFinite(raw) && raw > 0) {
+    return Math.floor(raw);
   }
-  liveCount += 1;
-  return true;
+  return DAILY_LIVE_CAP;
+}
+
+export function canLiveExtract(
+  cap = DAILY_LIVE_CAP,
+  now = Date.now(),
+): boolean {
+  rollDay(now);
+  return liveCount < cap;
+}
+
+export function recordLiveExtraction(
+  cap = DAILY_LIVE_CAP,
+  now = Date.now(),
+): void {
+  rollDay(now);
+  if (liveCount < cap) {
+    liveCount += 1;
+  }
 }
 
 export function resetDailyCap() {
