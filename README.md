@@ -40,6 +40,19 @@ Add captures here after you walk the app locally:
 
 `npm test` (Vitest) covers tax math, civil-date edge cases, roll conventions, mock extraction, provider fallback, custom deadlines, and analytics helpers. `npm run build` type-checks the App Router app. Tests never call a real model.
 
+## Reliability
+
+Live Inbox extraction is written for a free Gemini key:
+
+- **Retries** — 503 / UNAVAILABLE and network timeouts retry up to twice, with about 1s then 3s backoff. 400 / 401 / 403 / 404 and Zod validation failures are not retried. 429 returns a quota message and is not retried.
+- **Fallback model** — set `GEMINI_FALLBACK_MODEL` to a second free-tier model. If the primary is still 503 after retries, that model is tried once. `npm run check:ai -- --probe` lists models that work with your key.
+- **Quota cap** — successful live extractions are capped app-wide (default 15/day via `AI_DAILY_CAP`) in addition to 5 requests per minute per IP. Sample documents never call the live model.
+- **Friendly errors** — a busy or exhausted model keeps the pasted text and tells the founder to wait, try again, or use a sample.
+
+## Verification
+
+US deadline rules in this repo were checked against official sources in October 2026. India rules are reviewed or unverified. See [VERIFY.md](VERIFY.md) for each rule’s status, last-checked date, and source links.
+
 ## What I cut, and why
 
 - **Command palette** — the five-item nav is enough; a palette would have slowed the shell.
@@ -50,7 +63,7 @@ Add captures here after you walk the app locally:
 
 ## What’s next
 
-- Verify every candidate date and rate in [VERIFY.md](VERIFY.md) against the official page for the current year. **No rule is marked verified yet.**
+- Recheck [VERIFY.md](VERIFY.md) before filing season. US rules were verified in October 2026; India rules are still reviewed or unverified.
 - Add `GEMINI_API_KEY` when you want live extraction.
 - Deploy on Vercel when the dates are checked.
 - Optional: more cost lines, a real India holiday source, PDF text extraction.
@@ -72,6 +85,8 @@ Open [http://localhost:3000](http://localhost:3000). Copy `.env.example` to `.en
 LLM_PROVIDER=gemini
 GEMINI_API_KEY=
 GEMINI_MODEL=
+GEMINI_FALLBACK_MODEL=
+AI_DAILY_CAP=15
 ANTHROPIC_API_KEY=
 ANTHROPIC_MODEL=
 NEXT_PUBLIC_POSTHOG_KEY=
@@ -116,6 +131,8 @@ These are the steps. This repo has not been deployed as part of this phase.
 | `LLM_PROVIDER` | `gemini` (falls back to mock if the key is empty) |
 | `GEMINI_API_KEY` | Add when you want live Inbox extraction |
 | `GEMINI_MODEL` | Optional; defaults in code if blank |
+| `GEMINI_FALLBACK_MODEL` | Optional second model if the primary returns 503 |
+| `AI_DAILY_CAP` | Optional. Daily cap on successful live extractions (default 15) |
 | `ANTHROPIC_API_KEY` | Only if you set `LLM_PROVIDER=anthropic` |
 | `ANTHROPIC_MODEL` | Optional |
 | `NEXT_PUBLIC_POSTHOG_KEY` | Leave empty to keep analytics off |
@@ -127,4 +144,4 @@ These are the steps. This repo has not been deployed as part of this phase.
 
 ## Disclaimer
 
-Founder Desk is an educational project. It is **not tax, legal, or accounting advice**, and it is not affiliated with the State of Delaware, the IRS, MCA, RBI, or GST authorities. Candidate rates and dates ship with `verified: false`. You are responsible for checking the official source before you file or pay.
+Founder Desk is an educational project. It is **not tax, legal, or accounting advice**, and it is not affiliated with the State of Delaware, the IRS, MCA, RBI, or GST authorities. Each rule ships with a verification status in [VERIFY.md](VERIFY.md). You are responsible for checking the official source before you file or pay.
