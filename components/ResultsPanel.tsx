@@ -1,4 +1,5 @@
 import { MathDetails } from "./MathDetails";
+import { UnverifiedBadge } from "@/components/ui/Badge";
 import { formatUsd } from "@/lib/format";
 import type { CompareResult, FranchiseTaxInput } from "@/lib/franchiseTax";
 import { selectResultsPresentation } from "@/lib/resultsPresentation";
@@ -20,13 +21,16 @@ export function ResultsPanel({ input, result }: ResultsPanelProps) {
       className="flex flex-col gap-6 rounded-md border border-line bg-card p-4 sm:p-6"
     >
       <div className="flex flex-col gap-2">
-        <h2
-          id="results-heading"
-          tabIndex={-1}
-          className="font-serif text-2xl font-medium tracking-tight text-foreground"
-        >
-          {view.heading}
-        </h2>
+        <div className="flex flex-wrap items-center gap-2">
+          <h2
+            id="results-heading"
+            tabIndex={-1}
+            className="font-serif text-2xl font-medium tracking-tight text-foreground"
+          >
+            {view.heading}
+          </h2>
+          {TAX_CONFIG.verified ? null : <UnverifiedBadge />}
+        </div>
         {view.intro ? <p className="text-sm text-muted">{view.intro}</p> : null}
         {view.variant === "alreadyLowest" && view.subline ? (
           <p

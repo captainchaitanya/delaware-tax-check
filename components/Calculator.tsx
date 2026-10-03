@@ -15,8 +15,12 @@ import type { CalculatorForm } from "@/lib/formTypes";
 import { selectResultsPresentation } from "@/lib/resultsPresentation";
 import { TAX_CONFIG } from "@/lib/taxConfig";
 
-export function Calculator() {
-  const [form, setForm] = useState<CalculatorForm>(EMPTY_FORM);
+type CalculatorProps = {
+  initialForm?: CalculatorForm;
+};
+
+export function Calculator({ initialForm }: CalculatorProps) {
+  const [form, setForm] = useState<CalculatorForm>(initialForm ?? EMPTY_FORM);
 
   const issued = parseIssuedShares(form.issuedShares);
   const assets = parseNonNegativeDecimal(form.grossAssets);
@@ -127,8 +131,10 @@ export function Calculator() {
       ) : null}
 
       <p className="border-t border-line pt-6 text-xs leading-5 text-muted">
-        Educational tool, not tax advice. These figures were last checked
-        against published Delaware instructions on {TAX_CONFIG.lastVerified}.
+        Educational tool, not tax advice.{" "}
+        {TAX_CONFIG.verified
+          ? `Last verified ${TAX_CONFIG.lastVerified}.`
+          : `Unverified candidate figures, last noted ${TAX_CONFIG.lastVerified}.`}
         Recheck{" "}
         <a
           href="https://corp.delaware.gov"

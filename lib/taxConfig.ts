@@ -10,6 +10,8 @@
 
 export const TAX_CONFIG = {
   lastVerified: "2026-10-03",
+  sourceUrl: "https://corp.delaware.gov",
+  verified: false,
 
   authorizedShares: {
     /** 5,000 shares or fewer */

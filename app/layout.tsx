@@ -1,5 +1,9 @@
 import type { Metadata } from "next";
 import { IBM_Plex_Mono, IBM_Plex_Sans, Source_Serif_4 } from "next/font/google";
+import { AppShell } from "@/components/app/AppShell";
+import { AppStateProvider } from "@/components/app/AppState";
+import { ToastProvider } from "@/components/ui/Toast";
+import { THEME_BOOT_SCRIPT } from "@/lib/theme";
 import "./globals.css";
 
 const display = Source_Serif_4({
@@ -23,30 +27,30 @@ const figures = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Delaware Tax Check",
+  title: {
+    default: "Founder Desk",
+    template: "%s · Founder Desk",
+  },
   description:
-    "See whether a Delaware franchise tax notice is using the Authorized Shares Method, and what the Assumed Par Value Capital Method would charge instead.",
+    "A compliance cockpit for founders running a Delaware C-corp from India — calendar, inbox, and franchise tax checker.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
+      suppressHydrationWarning
       className={`${display.variable} ${body.variable} ${figures.variable} h-full antialiased`}
     >
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_BOOT_SCRIPT }} />
+      </head>
       <body className="min-h-full bg-background font-sans text-foreground">
-        <div className="h-1 bg-accent" aria-hidden="true" />
-        <header className="border-b border-line">
-          <div className="mx-auto flex w-full max-w-2xl flex-col gap-1 px-4 py-4 sm:flex-row sm:items-baseline sm:justify-between">
-            <p className="font-serif text-lg font-medium tracking-tight">
-              Delaware Tax Check
-            </p>
-            <p className="text-xs text-muted">
-              Educational tool, not tax advice
-            </p>
-          </div>
-        </header>
-        {children}
+        <ToastProvider>
+          <AppStateProvider>
+            <AppShell>{children}</AppShell>
+          </AppStateProvider>
+        </ToastProvider>
       </body>
     </html>
   );
