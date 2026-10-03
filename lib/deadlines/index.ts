@@ -20,3 +20,9 @@ export {
 export { deadlinesToIcs } from "./ics";
 export { DEADLINE_RULES, type Jurisdiction, type RollConvention } from "./rules";
 export type { CustomDeadline, CustomDeadlineSource } from "./custom";
+export type { DeadlineOverride } from "./overrides";
+export {
+  matchDocumentToBuiltInRule,
+  ruleIdForDocument,
+  type DocumentRuleMatch,
+} from "./match";

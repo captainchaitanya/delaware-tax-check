@@ -35,8 +35,13 @@ const STATUS_LABEL: Record<DeadlineStatus, string> = {
 };
 
 export function CalendarApp() {
-  const { state, setDeadlineProgress, upsertCustomDeadline, removeCustomDeadline } =
-    useAppState();
+  const {
+    state,
+    setDeadlineProgress,
+    upsertCustomDeadline,
+    removeCustomDeadline,
+    removeDeadlineOverride,
+  } = useAppState();
   const { notify } = useToast();
   const profile = state.profile;
   const [view, setView] = useState("list");
@@ -61,8 +66,9 @@ export function CalendarApp() {
     return generateDeadlines(profile, today, {
       lookbackDays: 90,
       customDeadlines: state.customDeadlines,
+      overrides: state.deadlineOverrides,
     });
-  }, [profile, state.customDeadlines, today]);
+  }, [profile, state.customDeadlines, state.deadlineOverrides, today]);
 
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase();
@@ -255,6 +261,22 @@ export function CalendarApp() {
             setSelected(null);
             notify("Deadline removed");
           }}
+          onRevertOverride={
+            selected.standardIsoDate
+              ? () => {
+                  const override = state.deadlineOverrides.find(
+                    (entry) =>
+                      entry.ruleId === selected.ruleId &&
+                      entry.originalIsoDate === selected.standardIsoDate,
+                  );
+                  if (override) {
+                    removeDeadlineOverride(override.id);
+                  }
+                  setSelected(null);
+                  notify("Reverted to the standard date");
+                }
+              : undefined
+          }
         />
       ) : null}
     </main>
@@ -491,6 +513,7 @@ function DeadlineDrawer({
   onSave,
   onSaveCustom,
   onRemoveCustom,
+  onRevertOverride,
 }: {
   item: GeneratedDeadline;
   stored?: CustomDeadline;
@@ -500,6 +523,7 @@ function DeadlineDrawer({
   onSave: (progress: { done: boolean; notes: string }) => void;
   onSaveCustom: (deadline: CustomDeadline) => void;
   onRemoveCustom: () => void;
+  onRevertOverride?: () => void;
 }) {
   const [draftNotes, setDraftNotes] = useState(notes);
   const [draftDone, setDraftDone] = useState(done);
@@ -584,6 +608,21 @@ function DeadlineDrawer({
             <span className="font-medium">If missed. </span>
             {item.ifMissed}
           </p>
+          {item.standardIsoDate ? (
+            <p>
+              This date came from your document. The standard date is{" "}
+              {item.standardIsoDate}.{" "}
+              {onRevertOverride ? (
+                <button
+                  type="button"
+                  onClick={onRevertOverride}
+                  className="font-medium text-accent underline underline-offset-4"
+                >
+                  Revert to standard date
+                </button>
+              ) : null}
+            </p>
+          ) : null}
           {item.notes ? (
             <p>
               <span className="font-medium">Note. </span>

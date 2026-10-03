@@ -5,6 +5,7 @@ import {
   type ExtraCostEstimates,
 } from "./costEstimates";
 import type { CustomDeadline } from "./deadlines/custom";
+import type { DeadlineOverride } from "./deadlines/overrides";
 import { extractionResultSchema, type ExtractionResult } from "./llm/schema";
 import type { LlmProviderId } from "./llm/selectProvider";
 
@@ -39,6 +40,7 @@ export type AppState = {
   deadlineProgress: Record<string, DeadlineProgress>;
   documents: InboxDocument[];
   customDeadlines: CustomDeadline[];
+  deadlineOverrides: DeadlineOverride[];
   extraCostEstimates: ExtraCostEstimates;
 };
 
@@ -81,6 +83,17 @@ const appStateSchema = z.object({
     .default({}),
   documents: z.array(inboxDocumentSchema).default([]),
   customDeadlines: z.array(customDeadlineSchema).default([]),
+  deadlineOverrides: z
+    .array(
+      z.object({
+        id: z.string().min(1),
+        ruleId: z.string().min(1),
+        originalIsoDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+        isoDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+        documentId: z.string().nullable(),
+      }),
+    )
+    .default([]),
   extraCostEstimates: z
     .object({
       indiaFilings: z.string(),
@@ -96,6 +109,7 @@ export const DEFAULT_APP_STATE: AppState = {
   deadlineProgress: {},
   documents: [],
   customDeadlines: [],
+  deadlineOverrides: [],
   extraCostEstimates: DEFAULT_EXTRA_COSTS,
 };
 

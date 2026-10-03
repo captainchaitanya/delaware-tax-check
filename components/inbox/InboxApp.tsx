@@ -19,6 +19,14 @@ import {
   type ExtractOutcome,
   type ExtractionResult,
 } from "@/lib/llm";
+import {
+  civilDateInTimeZone,
+  formatCivilDate,
+  generateDeadlines,
+  matchDocumentToBuiltInRule,
+  parseIsoDate,
+  type DocumentRuleMatch,
+} from "@/lib/deadlines";
 import type { InboxDocument } from "@/lib/storage";
 
 type ReviewDraft = {
@@ -36,6 +44,7 @@ export function InboxApp() {
     saveProfile,
     upsertDocument,
     upsertCustomDeadline,
+    upsertDeadlineOverride,
   } = useAppState();
   const { notify } = useToast();
   const [text, setText] = useState("");
@@ -43,6 +52,28 @@ export function InboxApp() {
   const [error, setError] = useState<string | null>(null);
   const [demoMode, setDemoMode] = useState(true);
   const [review, setReview] = useState<ReviewDraft | null>(null);
+  const today = useMemo(
+    () => civilDateInTimeZone(new Date(), "America/New_York"),
+    [],
+  );
+  const ruleMatch = useMemo(() => {
+    if (!review || !state.profile || !review.deadlineDate) {
+      return null;
+    }
+    const items = generateDeadlines(state.profile, today, {
+      lookbackDays: 180,
+    });
+    return matchDocumentToBuiltInRule(
+      {
+        ...review.document.extraction,
+        fields: review.fields,
+        shareClasses: review.shareClasses,
+      },
+      review.deadlineTitle,
+      review.deadlineDate,
+      items,
+    );
+  }, [review, state.profile, today]);
 
   useEffect(() => {
     let cancelled = false;
@@ -161,6 +192,34 @@ export function InboxApp() {
     capture(ANALYTICS_EVENTS.documentAddedToCalendar);
   }
 
+  function applyRuleUpdate() {
+    if (!review || !ruleMatch) {
+      return;
+    }
+    const override = {
+      id: `override:${ruleMatch.ruleId}:${ruleMatch.originalIsoDate}`,
+      ruleId: ruleMatch.ruleId,
+      originalIsoDate: ruleMatch.originalIsoDate,
+      isoDate: ruleMatch.newIsoDate,
+      documentId: review.document.id,
+    };
+    upsertDeadlineOverride(override);
+    const document = documentFromDraft(
+      {
+        ...review,
+        document: { ...review.document, deadlineId: override.id },
+      },
+      review.document.status,
+    );
+    upsertDocument(document);
+    setReview({ ...review, document });
+    notify("Deadline updated on the calendar", {
+      href: "/calendar",
+      label: "View in calendar",
+    });
+    capture(ANALYTICS_EVENTS.documentAddedToCalendar);
+  }
+
   function sendShareData() {
     if (!review || !state.profile) {
       return;
@@ -201,6 +260,12 @@ export function InboxApp() {
         onSave={() => saveReview("needs_review")}
         onReviewed={() => saveReview("done")}
         onAddDeadline={addDeadline}
+        onApplyRuleUpdate={applyRuleUpdate}
+        ruleMatch={
+          ruleMatch && ruleMatch.originalIsoDate !== ruleMatch.newIsoDate
+            ? ruleMatch
+            : null
+        }
         onSendShareData={sendShareData}
       />
     );
@@ -340,6 +405,8 @@ function ReviewScreen({
   onSave,
   onReviewed,
   onAddDeadline,
+  onApplyRuleUpdate,
+  ruleMatch,
   onSendShareData,
 }: {
   review: ReviewDraft;
@@ -350,6 +417,8 @@ function ReviewScreen({
   onSave: () => void;
   onReviewed: () => void;
   onAddDeadline: () => void;
+  onApplyRuleUpdate: () => void;
+  ruleMatch: DocumentRuleMatch | null;
   onSendShareData: () => void;
 }) {
   const extraction = review.document.extraction;
@@ -547,8 +616,22 @@ function ReviewScreen({
         </div>
       </Card>
 
-      <div className="mt-6 flex flex-wrap gap-2">
-        {hasDeadline ? (
+      {ruleMatch ? (
+        <p className="mt-6 text-sm leading-6">
+          This updates your {ruleMatch.ruleTitle} deadline from{" "}
+          {formatCivilDate(parseIsoDate(ruleMatch.originalIsoDate))} to{" "}
+          {formatCivilDate(parseIsoDate(ruleMatch.newIsoDate))}.
+        </p>
+      ) : null}
+      <div className={`flex flex-wrap gap-2 ${ruleMatch ? "mt-3" : "mt-6"}`}>
+        {ruleMatch ? (
+          <>
+            <Button onClick={onApplyRuleUpdate}>Apply update</Button>
+            <Button variant="secondary" onClick={onAddDeadline}>
+              Add as separate item
+            </Button>
+          </>
+        ) : hasDeadline ? (
           <Button onClick={onAddDeadline}>Add deadline to calendar</Button>
         ) : null}
         <Button variant={hasDeadline ? "secondary" : undefined} onClick={onSave}>

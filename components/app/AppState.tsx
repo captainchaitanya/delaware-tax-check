@@ -10,6 +10,7 @@ import {
   type ReactNode,
 } from "react";
 import type { CustomDeadline } from "@/lib/deadlines/custom";
+import type { DeadlineOverride } from "@/lib/deadlines/overrides";
 import type { ExtraCostEstimates } from "@/lib/costEstimates";
 import type { CompanyProfile } from "@/lib/profile";
 import {
@@ -35,6 +36,8 @@ type AppStateContextValue = {
   updateDocument: (id: string, patch: Partial<InboxDocument>) => void;
   upsertCustomDeadline: (deadline: CustomDeadline) => void;
   removeCustomDeadline: (id: string) => void;
+  upsertDeadlineOverride: (override: DeadlineOverride) => void;
+  removeDeadlineOverride: (id: string) => void;
   setExtraCostEstimates: (estimates: ExtraCostEstimates) => void;
 };
 
@@ -162,6 +165,37 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     [persist],
   );
 
+  const upsertDeadlineOverride = useCallback(
+    (override: DeadlineOverride) => {
+      persist((prev) => {
+        const existing = prev.deadlineOverrides.some(
+          (item) => item.id === override.id,
+        );
+        return {
+          ...prev,
+          deadlineOverrides: existing
+            ? prev.deadlineOverrides.map((item) =>
+                item.id === override.id ? override : item,
+              )
+            : [...prev.deadlineOverrides, override],
+        };
+      });
+    },
+    [persist],
+  );
+
+  const removeDeadlineOverride = useCallback(
+    (id: string) => {
+      persist((prev) => ({
+        ...prev,
+        deadlineOverrides: prev.deadlineOverrides.filter(
+          (item) => item.id !== id,
+        ),
+      }));
+    },
+    [persist],
+  );
+
   const setExtraCostEstimates = useCallback(
     (extraCostEstimates: ExtraCostEstimates) => {
       persist((prev) => ({ ...prev, extraCostEstimates }));
@@ -182,12 +216,15 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       updateDocument,
       upsertCustomDeadline,
       removeCustomDeadline,
+      upsertDeadlineOverride,
+      removeDeadlineOverride,
       setExtraCostEstimates,
     }),
     [
       hydrated,
       persist,
       removeCustomDeadline,
+      removeDeadlineOverride,
       resetState,
       saveProfile,
       setDeadlineProgress,
@@ -196,6 +233,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       state,
       updateDocument,
       upsertCustomDeadline,
+      upsertDeadlineOverride,
       upsertDocument,
     ],
   );

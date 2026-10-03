@@ -40,9 +40,10 @@ export function DashboardHome() {
         ? generateDeadlines(profile, today, {
             lookbackDays: 90,
             customDeadlines: state.customDeadlines,
+            overrides: state.deadlineOverrides,
           })
         : [],
-    [profile, state.customDeadlines, today],
+    [profile, state.customDeadlines, state.deadlineOverrides, today],
   );
   const next = upcomingDeadlines(items, 5);
   const overdue = overdueItems(items, state.deadlineProgress);

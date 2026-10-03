@@ -17,6 +17,7 @@ import {
   type TimeZoneId,
 } from "./civilDate";
 import type { CustomDeadline } from "./custom";
+import type { DeadlineOverride } from "./overrides";
 import { nextBusinessDay } from "./holidays";
 import {
   DEADLINE_RULES,
@@ -51,12 +52,14 @@ export type GeneratedDeadline = {
   effectiveIsoDate: string | null;
   origin: "rule" | "document" | "manual";
   documentId: string | null;
+  standardIsoDate: string | null;
 };
 
 export type GenerateOptions = {
   lookbackDays?: number;
   rules?: DeadlineRule[];
   customDeadlines?: CustomDeadline[];
+  overrides?: DeadlineOverride[];
 };
 
 function asCivilDate(today: CivilDate | string): CivilDate {
@@ -339,6 +342,7 @@ export function generateDeadlines(
       effectiveIsoDate: effectiveDate ? toIsoDate(effectiveDate) : null,
       origin: "rule",
       documentId: null,
+      standardIsoDate: null,
     });
   }
 
@@ -347,6 +351,28 @@ export function generateDeadlines(
   }
   for (const rule of dependents) {
     pushRule(rule);
+  }
+
+  for (const override of options.overrides ?? []) {
+    const item = items.find(
+      (entry) =>
+        entry.ruleId === override.ruleId &&
+        entry.isoDate === override.originalIsoDate,
+    );
+    if (!item) {
+      continue;
+    }
+    const date = parseIsoDate(override.isoDate);
+    item.standardIsoDate = override.originalIsoDate;
+    item.date = date;
+    item.isoDate = override.isoDate;
+    item.rollConvention = "none";
+    item.effectiveDate = null;
+    item.effectiveIsoDate = null;
+    item.appliesLabel = "From your document";
+    item.origin = "document";
+    item.documentId = override.documentId;
+    item.status = statusFor(date, today);
   }
 
   for (const custom of options.customDeadlines ?? []) {
@@ -388,5 +414,6 @@ export function customToGenerated(
     effectiveIsoDate: null,
     origin: custom.source,
     documentId: custom.documentId,
+    standardIsoDate: null,
   };
 }

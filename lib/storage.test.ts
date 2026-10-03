@@ -49,6 +49,7 @@ describe("storage", () => {
       deadlineProgress: {},
       documents: [],
       customDeadlines: [],
+      deadlineOverrides: [],
       extraCostEstimates: { indiaFilings: "", other: "" },
     };
     expect(writeState(state)).toBe(true);
