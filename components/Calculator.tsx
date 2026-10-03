@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { ANALYTICS_EVENTS, capture, savingsBucket } from "@/lib/analytics";
 import { NextSteps } from "./NextSteps";
 import { ResultsPanel } from "./ResultsPanel";
 import { ShareClassList } from "./ShareClassList";
@@ -25,6 +26,23 @@ export function Calculator({ initialForm }: CalculatorProps) {
   const issued = parseIssuedShares(form.issuedShares);
   const assets = parseNonNegativeDecimal(form.grossAssets);
   const calculation = useMemo(() => calculateIfReady(form), [form]);
+  const lastCalc = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!calculation.ready) {
+      return;
+    }
+    const bucket = savingsBucket(calculation.result.savings);
+    const signature = `${calculation.result.winningMethod}:${bucket}`;
+    if (lastCalc.current === signature) {
+      return;
+    }
+    lastCalc.current = signature;
+    capture(ANALYTICS_EVENTS.franchiseTaxCalculated, {
+      winningMethod: calculation.result.winningMethod,
+      savingsBucket: bucket,
+    });
+  }, [calculation]);
 
   function loadExample() {
     setForm({

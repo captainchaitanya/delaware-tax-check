@@ -8,6 +8,7 @@ import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { TextArea, TextInput } from "@/components/ui/Input";
 import { useToast } from "@/components/ui/Toast";
+import { ANALYTICS_EVENTS, capture } from "@/lib/analytics";
 import { newId } from "@/lib/ids";
 import {
   DOCUMENT_TYPE_LABEL,
@@ -96,6 +97,11 @@ export function InboxApp() {
       };
       setReview(draftFromDocument(document));
       setText(source);
+      capture(ANALYTICS_EVENTS.documentExtracted, {
+        documentType: payload.result.documentType,
+        provider: payload.provider,
+        demoMode: payload.demoMode,
+      });
     } catch {
       setError("The reader is unavailable right now.");
     } finally {
@@ -146,6 +152,7 @@ export function InboxApp() {
     upsertDocument(document);
     setReview({ ...review, document });
     notify("Deadline added to the calendar");
+    capture(ANALYTICS_EVENTS.documentAddedToCalendar);
   }
 
   function sendShareData() {

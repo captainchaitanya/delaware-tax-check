@@ -1,5 +1,9 @@
 import { companyProfileSchema, type CompanyProfile } from "./profile";
 import { z } from "zod";
+import {
+  DEFAULT_EXTRA_COSTS,
+  type ExtraCostEstimates,
+} from "./costEstimates";
 import type { CustomDeadline } from "./deadlines/custom";
 import { extractionResultSchema, type ExtractionResult } from "./llm/schema";
 import type { LlmProviderId } from "./llm/selectProvider";
@@ -34,6 +38,7 @@ export type AppState = {
   deadlineProgress: Record<string, DeadlineProgress>;
   documents: InboxDocument[];
   customDeadlines: CustomDeadline[];
+  extraCostEstimates: ExtraCostEstimates;
 };
 
 const customDeadlineSchema = z.object({
@@ -74,6 +79,12 @@ const appStateSchema = z.object({
     .default({}),
   documents: z.array(inboxDocumentSchema).default([]),
   customDeadlines: z.array(customDeadlineSchema).default([]),
+  extraCostEstimates: z
+    .object({
+      indiaFilings: z.string(),
+      other: z.string(),
+    })
+    .default(DEFAULT_EXTRA_COSTS),
 });
 
 export const DEFAULT_APP_STATE: AppState = {
@@ -83,6 +94,7 @@ export const DEFAULT_APP_STATE: AppState = {
   deadlineProgress: {},
   documents: [],
   customDeadlines: [],
+  extraCostEstimates: DEFAULT_EXTRA_COSTS,
 };
 
 function getLocalStorage(): Storage | null {

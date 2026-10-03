@@ -10,6 +10,7 @@ import {
   type ReactNode,
 } from "react";
 import type { CustomDeadline } from "@/lib/deadlines/custom";
+import type { ExtraCostEstimates } from "@/lib/costEstimates";
 import type { CompanyProfile } from "@/lib/profile";
 import {
   DEFAULT_APP_STATE,
@@ -34,6 +35,7 @@ type AppStateContextValue = {
   updateDocument: (id: string, patch: Partial<InboxDocument>) => void;
   upsertCustomDeadline: (deadline: CustomDeadline) => void;
   removeCustomDeadline: (id: string) => void;
+  setExtraCostEstimates: (estimates: ExtraCostEstimates) => void;
 };
 
 const AppStateContext = createContext<AppStateContextValue | null>(null);
@@ -148,6 +150,13 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     [persist, state],
   );
 
+  const setExtraCostEstimates = useCallback(
+    (extraCostEstimates: ExtraCostEstimates) => {
+      persist({ ...state, extraCostEstimates });
+    },
+    [persist, state],
+  );
+
   const value = useMemo(
     () => ({
       hydrated,
@@ -161,6 +170,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       updateDocument,
       upsertCustomDeadline,
       removeCustomDeadline,
+      setExtraCostEstimates,
     }),
     [
       hydrated,
@@ -169,6 +179,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       resetState,
       saveProfile,
       setDeadlineProgress,
+      setExtraCostEstimates,
       setTheme,
       state,
       updateDocument,

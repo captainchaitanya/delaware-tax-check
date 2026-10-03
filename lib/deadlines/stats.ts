@@ -11,13 +11,20 @@ export function upcomingDeadlines(
     .slice(0, limit);
 }
 
+export function overdueItems(
+  items: GeneratedDeadline[],
+  progress: Record<string, DeadlineProgress>,
+): GeneratedDeadline[] {
+  return items.filter(
+    (item) => item.status === "overdue" && !progress[item.id]?.done,
+  );
+}
+
 export function overdueCount(
   items: GeneratedDeadline[],
   progress: Record<string, DeadlineProgress>,
 ): number {
-  return items.filter(
-    (item) => item.status === "overdue" && !progress[item.id]?.done,
-  ).length;
+  return overdueItems(items, progress).length;
 }
 
 export function quarterCompletion(

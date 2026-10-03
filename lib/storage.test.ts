@@ -49,6 +49,7 @@ describe("storage", () => {
       deadlineProgress: {},
       documents: [],
       customDeadlines: [],
+      extraCostEstimates: { indiaFilings: "", other: "" },
     };
     expect(writeState(state)).toBe(true);
     expect(readState().profile?.companyName).toBe("Northbridge Labs, Inc.");

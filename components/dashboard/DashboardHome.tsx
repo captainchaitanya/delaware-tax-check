@@ -2,18 +2,23 @@
 
 import { useMemo } from "react";
 import { useAppState } from "@/components/app/AppState";
+import { MonthChart } from "@/components/dashboard/MonthChart";
+import { QuarterRing } from "@/components/dashboard/QuarterRing";
 import { UnverifiedBadge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { TextInput } from "@/components/ui/Input";
 import { LinkButton } from "@/components/ui/LinkButton";
 import { Stat } from "@/components/ui/Stat";
+import { annualCostTotal, dollarsFromEstimate } from "@/lib/costEstimates";
 import {
   civilDateInTimeZone,
   formatCivilDate,
   generateDeadlines,
 } from "@/lib/deadlines";
+import { deadlinesByMonth } from "@/lib/deadlines/chart";
 import {
-  overdueCount,
+  overdueItems,
   quarterCompletion,
   upcomingDeadlines,
 } from "@/lib/deadlines/stats";
@@ -23,7 +28,7 @@ import { greetingFor } from "@/lib/greeting";
 import { TAX_CONFIG } from "@/lib/taxConfig";
 
 export function DashboardHome() {
-  const { state } = useAppState();
+  const { state, setExtraCostEstimates } = useAppState();
   const profile = state.profile;
   const today = useMemo(
     () => civilDateInTimeZone(new Date(), "America/New_York"),
@@ -40,9 +45,15 @@ export function DashboardHome() {
     [profile, state.customDeadlines, today],
   );
   const next = upcomingDeadlines(items, 5);
-  const overdue = overdueCount(items, state.deadlineProgress);
+  const overdue = overdueItems(items, state.deadlineProgress);
   const quarter = quarterCompletion(items, today, state.deadlineProgress);
   const estimate = franchiseEstimateFromProfile(profile);
+  const extras = state.extraCostEstimates;
+  const totalCost = annualCostTotal(estimate?.filingTotal ?? null, extras);
+  const monthBuckets = useMemo(
+    () => deadlinesByMonth(items, today),
+    [items, today],
+  );
 
   if (!profile) {
     return null;
@@ -67,8 +78,8 @@ export function DashboardHome() {
         />
         <Stat
           label="Overdue"
-          value={String(overdue)}
-          hint={overdue === 0 ? "Nothing past due" : "Still open"}
+          value={String(overdue.length)}
+          hint={overdue.length === 0 ? "Nothing past due" : "Still open"}
         />
         <Stat
           label="Done this quarter"
@@ -77,11 +88,11 @@ export function DashboardHome() {
         />
         <Stat
           label="Est. annual cost"
-          value={estimate ? formatUsd(estimate.filingTotal) : "—"}
+          value={totalCost === null ? "—" : formatUsd(totalCost)}
           hint={
             estimate
-              ? "Delaware franchise tax and annual report"
-              : "Add share data to estimate"
+              ? "Delaware filing plus your other estimates"
+              : "Add share data and optional estimates"
           }
         />
       </div>
@@ -114,19 +125,50 @@ export function DashboardHome() {
 
         <Card>
           <h2 className="mb-3 font-serif text-xl font-medium">Action items</h2>
-          {overdue === 0 ? (
+          {overdue.length === 0 ? (
             <EmptyState
               title="You're clear"
               body="Nothing needs your attention right now."
               action={<LinkButton href="/inbox">Open Inbox</LinkButton>}
             />
           ) : (
-            <EmptyState
-              title={`${overdue} overdue filing${overdue === 1 ? "" : "s"}`}
-              body="Open the calendar to mark them done or add a note."
-              action={<LinkButton href="/calendar">Review overdue</LinkButton>}
-            />
+            <div>
+              <p className="text-sm leading-6 text-muted">
+                {overdue.length} overdue filing
+                {overdue.length === 1 ? "" : "s"} still open.
+              </p>
+              <ul className="mt-3 flex flex-col gap-2">
+                {overdue.slice(0, 5).map((item) => (
+                  <li
+                    key={item.id}
+                    className="flex justify-between gap-3 text-sm"
+                  >
+                    <span>{item.title}</span>
+                    <span className="font-mono tabular-nums text-muted">
+                      {formatCivilDate(item.date)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              <div className="mt-4">
+                <LinkButton href="/calendar">Review overdue</LinkButton>
+              </div>
+            </div>
           )}
+        </Card>
+
+        <Card>
+          <h2 className="mb-3 font-serif text-xl font-medium">
+            Quarter completion
+          </h2>
+          <QuarterRing done={quarter.done} total={quarter.total} />
+        </Card>
+
+        <Card>
+          <h2 className="mb-3 font-serif text-xl font-medium">
+            Deadlines next 12 months
+          </h2>
+          <MonthChart buckets={monthBuckets} />
         </Card>
 
         <Card>
@@ -136,28 +178,57 @@ export function DashboardHome() {
             </h2>
             {TAX_CONFIG.verified ? null : <UnverifiedBadge />}
           </div>
-          {estimate ? (
-            <div className="flex flex-col gap-4">
-              <Stat
-                label="Delaware franchise tax + annual report"
-                value={formatUsd(estimate.filingTotal)}
-                hint={`${formatUsd(estimate.tax)} tax and ${formatUsd(estimate.annualReportFee)} report fee. Other costs are not estimated yet.`}
-              />
-              <LinkButton href="/tools/franchise-tax">
-                Review the calculation
-              </LinkButton>
-            </div>
-          ) : (
-            <EmptyState
-              title="No share data yet"
-              body="Add authorized shares, issued shares, and assets to estimate the Delaware franchise tax."
-              action={
-                <LinkButton href="/tools/franchise-tax">
-                  Open Franchise Tax Checker
-                </LinkButton>
+          <div className="flex flex-col gap-4">
+            <Stat
+              label="Delaware franchise tax + annual report"
+              value={estimate ? formatUsd(estimate.filingTotal) : "—"}
+              hint={
+                estimate
+                  ? `${formatUsd(estimate.tax)} tax and ${formatUsd(estimate.annualReportFee)} report fee from the checker.`
+                  : "Add share data to estimate this line."
               }
             />
-          )}
+            <TextInput
+              id="cost-india"
+              label="India filings (your estimate)"
+              hint="MCA, GST, TDS, and other India costs you expect. Not calculated."
+              inputMode="decimal"
+              value={extras.indiaFilings}
+              onChange={(event) =>
+                setExtraCostEstimates({
+                  ...extras,
+                  indiaFilings: event.target.value,
+                })
+              }
+              placeholder="0"
+            />
+            <TextInput
+              id="cost-other"
+              label="Other costs (your estimate)"
+              hint="Registered agent, accounting, or anything else you want in the total."
+              inputMode="decimal"
+              value={extras.other}
+              onChange={(event) =>
+                setExtraCostEstimates({
+                  ...extras,
+                  other: event.target.value,
+                })
+              }
+              placeholder="0"
+            />
+            <Stat
+              label="Combined estimate"
+              value={
+                totalCost === null
+                  ? "—"
+                  : formatUsd(totalCost)
+              }
+              hint={`Includes ${formatUsd(dollarsFromEstimate(extras.indiaFilings) ?? 0)} India and ${formatUsd(dollarsFromEstimate(extras.other) ?? 0)} other, as you typed.`}
+            />
+            <LinkButton href="/tools/franchise-tax">
+              Review the Delaware calculation
+            </LinkButton>
+          </div>
         </Card>
 
         <Card>

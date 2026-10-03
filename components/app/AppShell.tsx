@@ -6,6 +6,7 @@ import { useEffect, type ReactNode } from "react";
 import { PageFooter } from "./PageFooter";
 import { useAppState } from "./AppState";
 import { NAV_ITEMS } from "./nav";
+import { AppLoadingSkeleton } from "@/components/ui/Skeleton";
 import type { ThemePreference } from "@/lib/storage";
 
 const navBase =
@@ -30,11 +31,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   }, [hydrated, onboarding, router, state.profile]);
 
   if (!hydrated) {
-    return (
-      <div className="flex min-h-dvh items-center justify-center px-4">
-        <p className="text-sm text-muted">Opening your desk…</p>
-      </div>
-    );
+    return <AppLoadingSkeleton />;
   }
 
   if (onboarding) {

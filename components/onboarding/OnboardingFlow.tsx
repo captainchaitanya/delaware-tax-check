@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { ANALYTICS_EVENTS, capture } from "@/lib/analytics";
 import { ShareClassList } from "@/components/ShareClassList";
 import { Field } from "@/components/Field";
 import { Button } from "@/components/ui/Button";
@@ -52,6 +53,12 @@ export function OnboardingFlow({ mode = "create" }: OnboardingFlowProps) {
 
   const progress = `${step + 1} of ${STEPS.length}`;
 
+  useEffect(() => {
+    if (mode === "create" && !state.profile) {
+      capture(ANALYTICS_EVENTS.onboardingStarted);
+    }
+  }, [mode, state.profile]);
+
   function next() {
     const message = validateStep(step, draft);
     if (message) {
@@ -75,6 +82,9 @@ export function OnboardingFlow({ mode = "create" }: OnboardingFlowProps) {
       return;
     }
     saveProfile(result.data);
+    if (mode === "create") {
+      capture(ANALYTICS_EVENTS.onboardingCompleted);
+    }
     router.push(mode === "edit" ? "/settings" : "/");
   }
 

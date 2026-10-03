@@ -24,6 +24,7 @@ import {
   type GeneratedDeadline,
   type Jurisdiction,
 } from "@/lib/deadlines";
+import { ANALYTICS_EVENTS, capture } from "@/lib/analytics";
 import { newId } from "@/lib/ids";
 
 const STATUS_LABEL: Record<DeadlineStatus, string> = {
@@ -96,6 +97,7 @@ export function CalendarApp() {
     link.click();
     URL.revokeObjectURL(url);
     notify("Calendar file downloaded");
+    capture(ANALYTICS_EVENTS.icsExported);
   }
 
   const grouped = groupByMonth(filtered);
@@ -239,6 +241,9 @@ export function CalendarApp() {
           onSave={(progress) => {
             setDeadlineProgress(selected.id, progress);
             notify(progress.done ? "Marked as done" : "Saved");
+            if (progress.done) {
+              capture(ANALYTICS_EVENTS.deadlineMarkedDone);
+            }
           }}
           onSaveCustom={(deadline) => {
             upsertCustomDeadline(deadline);
