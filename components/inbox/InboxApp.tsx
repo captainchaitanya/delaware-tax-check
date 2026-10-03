@@ -393,14 +393,14 @@ function ReviewScreen({
         <p className="mt-1 text-sm text-muted">
           Edit anything that looks wrong. Low-confidence rows are marked.
         </p>
-        <div className="mt-4 overflow-x-auto">
-          <table className="w-full min-w-[36rem] text-left text-sm">
+        <div className="mt-4">
+          <table className="w-full table-fixed text-left text-sm">
             <thead>
               <tr className="text-xs uppercase tracking-wide text-muted">
-                <th className="pb-2 font-medium">Field</th>
-                <th className="pb-2 font-medium">Value</th>
-                <th className="pb-2 font-medium">Source quote</th>
-                <th className="pb-2 font-medium">Confidence</th>
+                <th className="w-[20%] pb-2 pr-2 font-medium">Field</th>
+                <th className="w-[34%] pb-2 pr-2 font-medium">Value</th>
+                <th className="w-[32%] pb-2 pr-2 font-medium">Source quote</th>
+                <th className="w-[14%] pb-2 font-medium">Confidence</th>
               </tr>
             </thead>
             <tbody>
@@ -411,11 +411,12 @@ function ReviewScreen({
                     field.confidence === "low" ? "bg-warn-soft/60" : undefined
                   }
                 >
-                  <td className="py-2 pr-3 align-top">{field.label}</td>
-                  <td className="py-2 pr-3 align-top">
-                    <input
+                  <td className="py-2 pr-2 align-top break-words">{field.label}</td>
+                  <td className="py-2 pr-2 align-top">
+                    <textarea
                       aria-label={field.label}
                       value={field.value}
+                      rows={2}
                       onChange={(event) =>
                         onChange({
                           ...review,
@@ -426,10 +427,10 @@ function ReviewScreen({
                           ),
                         })
                       }
-                      className="h-10 w-full rounded-md border border-line bg-card px-2 font-mono tabular-nums"
+                      className="min-h-10 w-full resize-y rounded-md border border-line bg-card px-2 py-1.5 font-mono text-sm leading-5 break-words"
                     />
                   </td>
-                  <td className="py-2 pr-3 align-top text-muted">
+                  <td className="py-2 pr-2 align-top break-words text-muted">
                     “{field.quote}”
                   </td>
                   <td className="py-2 align-top">
@@ -451,12 +452,13 @@ function ReviewScreen({
                     share.confidence === "low" ? "bg-warn-soft/60" : undefined
                   }
                 >
-                  <td className="py-2 pr-3 align-top">{share.name}</td>
-                  <td className="py-2 pr-3 align-top">
+                  <td className="py-2 pr-2 align-top break-words">{share.name}</td>
+                  <td className="py-2 pr-2 align-top">
                     <div className="flex flex-col gap-2">
-                      <input
+                      <textarea
                         aria-label={`${share.name} authorized`}
                         value={share.authorized}
+                        rows={2}
                         onChange={(event) =>
                           onChange({
                             ...review,
@@ -468,11 +470,12 @@ function ReviewScreen({
                             ),
                           })
                         }
-                        className="h-10 w-full rounded-md border border-line bg-card px-2 font-mono tabular-nums"
+                        className="min-h-10 w-full resize-y rounded-md border border-line bg-card px-2 py-1.5 font-mono text-sm leading-5 break-words"
                       />
-                      <input
+                      <textarea
                         aria-label={`${share.name} par value`}
                         value={share.parValue}
+                        rows={2}
                         onChange={(event) =>
                           onChange({
                             ...review,
@@ -484,11 +487,11 @@ function ReviewScreen({
                             ),
                           })
                         }
-                        className="h-10 w-full rounded-md border border-line bg-card px-2 font-mono tabular-nums"
+                        className="min-h-10 w-full resize-y rounded-md border border-line bg-card px-2 py-1.5 font-mono text-sm leading-5 break-words"
                       />
                     </div>
                   </td>
-                  <td className="py-2 pr-3 align-top text-muted">
+                  <td className="py-2 pr-2 align-top break-words text-muted">
                     “{share.quote}”
                   </td>
                   <td className="py-2 align-top">
@@ -545,9 +548,11 @@ function ReviewScreen({
       </Card>
 
       <div className="mt-6 flex flex-wrap gap-2">
-        <Button onClick={onSave}>Save to inbox</Button>
-        <Button variant="secondary" onClick={onAddDeadline} disabled={!hasDeadline}>
-          Add deadline to calendar
+        {hasDeadline ? (
+          <Button onClick={onAddDeadline}>Add deadline to calendar</Button>
+        ) : null}
+        <Button variant={hasDeadline ? "secondary" : undefined} onClick={onSave}>
+          Save to inbox
         </Button>
         {hasShares ? (
           <Button variant="secondary" onClick={onSendShareData}>
