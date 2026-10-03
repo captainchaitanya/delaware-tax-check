@@ -47,6 +47,8 @@ describe("storage", () => {
       profile: SAMPLE_PROFILE,
       theme: "dark" as const,
       deadlineProgress: {},
+      documents: [],
+      customDeadlines: [],
     };
     expect(writeState(state)).toBe(true);
     expect(readState().profile?.companyName).toBe("Northbridge Labs, Inc.");

@@ -10,6 +10,13 @@ export {
   weekday,
   type CivilDate,
 } from "./civilDate";
-export { generateDeadlines, type GeneratedDeadline, type DeadlineStatus } from "./generate";
+export {
+  customToGenerated,
+  generateDeadlines,
+  statusFor,
+  type GeneratedDeadline,
+  type DeadlineStatus,
+} from "./generate";
 export { deadlinesToIcs } from "./ics";
 export { DEADLINE_RULES, type Jurisdiction, type RollConvention } from "./rules";
+export type { CustomDeadline, CustomDeadlineSource } from "./custom";

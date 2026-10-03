@@ -1,4 +1,3 @@
-import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
 import { LinkButton } from "@/components/ui/LinkButton";
 
@@ -27,10 +26,7 @@ export default function ToolsPage() {
           </div>
         </Card>
         <Card as="article">
-          <div className="flex items-center justify-between gap-2">
-            <h2 className="font-serif text-xl font-medium">Document Inbox</h2>
-            <Badge>Soon</Badge>
-          </div>
+          <h2 className="font-serif text-xl font-medium">Document Inbox</h2>
           <p className="mt-2 text-sm leading-6 text-muted">
             Paste a notice and review extracted dates and share classes before
             anything is saved.

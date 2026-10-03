@@ -1,5 +1,8 @@
 import { companyProfileSchema, type CompanyProfile } from "./profile";
 import { z } from "zod";
+import type { CustomDeadline } from "./deadlines/custom";
+import { extractionResultSchema, type ExtractionResult } from "./llm/schema";
+import type { LlmProviderId } from "./llm/selectProvider";
 
 export const STORAGE_KEY = "founder-desk-v1";
 
@@ -10,12 +13,51 @@ export type DeadlineProgress = {
   notes: string;
 };
 
+export type InboxDocumentStatus = "needs_review" | "done";
+
+export type InboxDocument = {
+  id: string;
+  createdAt: string;
+  status: InboxDocumentStatus;
+  rawText: string;
+  extraction: ExtractionResult;
+  demoMode: boolean;
+  provider: LlmProviderId;
+  deadlineId: string | null;
+  shareDataSent: boolean;
+};
+
 export type AppState = {
   version: 1;
   profile: CompanyProfile | null;
   theme: ThemePreference;
   deadlineProgress: Record<string, DeadlineProgress>;
+  documents: InboxDocument[];
+  customDeadlines: CustomDeadline[];
 };
+
+const customDeadlineSchema = z.object({
+  id: z.string().min(1),
+  title: z.string().min(1),
+  isoDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  jurisdiction: z.enum(["US-Federal", "US-Delaware", "India"]),
+  whatThisIs: z.string(),
+  ifMissed: z.string(),
+  source: z.enum(["document", "manual"]),
+  documentId: z.string().nullable(),
+});
+
+const inboxDocumentSchema = z.object({
+  id: z.string().min(1),
+  createdAt: z.string().min(1),
+  status: z.enum(["needs_review", "done"]),
+  rawText: z.string(),
+  extraction: extractionResultSchema,
+  demoMode: z.boolean(),
+  provider: z.enum(["gemini", "anthropic", "mock"]),
+  deadlineId: z.string().nullable(),
+  shareDataSent: z.boolean(),
+});
 
 const appStateSchema = z.object({
   version: z.literal(1),
@@ -30,6 +72,8 @@ const appStateSchema = z.object({
       }),
     )
     .default({}),
+  documents: z.array(inboxDocumentSchema).default([]),
+  customDeadlines: z.array(customDeadlineSchema).default([]),
 });
 
 export const DEFAULT_APP_STATE: AppState = {
@@ -37,6 +81,8 @@ export const DEFAULT_APP_STATE: AppState = {
   profile: null,
   theme: "system",
   deadlineProgress: {},
+  documents: [],
+  customDeadlines: [],
 };
 
 function getLocalStorage(): Storage | null {

@@ -11,6 +11,7 @@ import {
   type CivilDate,
   type TimeZoneId,
 } from "./civilDate";
+import type { CustomDeadline } from "./custom";
 import { nextBusinessDay } from "./holidays";
 import {
   DEADLINE_RULES,
@@ -41,11 +42,14 @@ export type GeneratedDeadline = {
   rollConvention: RollConvention;
   effectiveDate: CivilDate | null;
   effectiveIsoDate: string | null;
+  origin: "rule" | "document" | "manual";
+  documentId: string | null;
 };
 
 export type GenerateOptions = {
   lookbackDays?: number;
   rules?: DeadlineRule[];
+  customDeadlines?: CustomDeadline[];
 };
 
 function asCivilDate(today: CivilDate | string): CivilDate {
@@ -173,7 +177,7 @@ function rawDatesForRule(
   }
 }
 
-function statusFor(date: CivilDate, today: CivilDate): DeadlineStatus {
+export function statusFor(date: CivilDate, today: CivilDate): DeadlineStatus {
   if (compareCivilDates(date, today) < 0) {
     return "overdue";
   }
@@ -289,6 +293,8 @@ export function generateDeadlines(
       rollConvention: rule.rollConvention,
       effectiveDate,
       effectiveIsoDate: effectiveDate ? toIsoDate(effectiveDate) : null,
+      origin: "rule",
+      documentId: null,
     });
   }
 
@@ -299,8 +305,42 @@ export function generateDeadlines(
     pushRule(rule);
   }
 
+  for (const custom of options.customDeadlines ?? []) {
+    items.push(customToGenerated(custom, today));
+  }
+
   return items.sort((a, b) => {
     const byDate = compareCivilDates(a.date, b.date);
     return byDate !== 0 ? byDate : a.title.localeCompare(b.title);
   });
+}
+
+export function customToGenerated(
+  custom: CustomDeadline,
+  today: CivilDate,
+): GeneratedDeadline {
+  const date = parseIsoDate(custom.isoDate);
+  return {
+    id: custom.id,
+    ruleId: "custom",
+    title: custom.title,
+    date,
+    isoDate: toIsoDate(date),
+    jurisdiction: custom.jurisdiction,
+    timeZone: custom.jurisdiction === "India" ? "Asia/Kolkata" : "America/New_York",
+    whatThisIs: custom.whatThisIs,
+    ifMissed: custom.ifMissed,
+    appliesLabel:
+      custom.source === "document" ? "From your document" : "Added by you",
+    sourceUrl: "",
+    verified: false,
+    lastVerified: null,
+    status: statusFor(date, today),
+    amountDollars: null,
+    rollConvention: "none",
+    effectiveDate: null,
+    effectiveIsoDate: null,
+    origin: custom.source,
+    documentId: custom.documentId,
+  };
 }

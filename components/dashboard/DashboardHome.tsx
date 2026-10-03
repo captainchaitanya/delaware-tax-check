@@ -32,9 +32,12 @@ export function DashboardHome() {
   const items = useMemo(
     () =>
       profile
-        ? generateDeadlines(profile, today, { lookbackDays: 90 })
+        ? generateDeadlines(profile, today, {
+            lookbackDays: 90,
+            customDeadlines: state.customDeadlines,
+          })
         : [],
-    [profile, today],
+    [profile, state.customDeadlines, today],
   );
   const next = upcomingDeadlines(items, 5);
   const overdue = overdueCount(items, state.deadlineProgress);
@@ -161,11 +164,30 @@ export function DashboardHome() {
           <h2 className="mb-3 font-serif text-xl font-medium">
             Recent documents
           </h2>
-          <EmptyState
-            title="Inbox is empty"
-            body="No documents yet. Paste a notice or certificate in the Inbox and it will show up here after you review it."
-            action={<LinkButton href="/inbox">Open Inbox</LinkButton>}
-          />
+          {state.documents.length === 0 ? (
+            <EmptyState
+              title="Inbox is empty"
+              body="No documents yet. Paste a notice or certificate in the Inbox and it will show up here after you review it."
+              action={<LinkButton href="/inbox">Open Inbox</LinkButton>}
+            />
+          ) : (
+            <ul className="flex flex-col gap-3">
+              {[...state.documents]
+                .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+                .slice(0, 4)
+                .map((document) => (
+                  <li key={document.id} className="text-sm">
+                    <span>{document.extraction.summary}</span>
+                    <span className="mt-1 block font-mono text-xs tabular-nums text-muted">
+                      {document.extraction.deadline?.isoDate ?? "No date"}
+                    </span>
+                  </li>
+                ))}
+              <li>
+                <LinkButton href="/inbox">Open Inbox</LinkButton>
+              </li>
+            </ul>
+          )}
         </Card>
       </div>
     </main>

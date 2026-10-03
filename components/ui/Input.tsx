@@ -1,4 +1,9 @@
-import type { InputHTMLAttributes, ReactNode, SelectHTMLAttributes } from "react";
+import type {
+  InputHTMLAttributes,
+  ReactNode,
+  SelectHTMLAttributes,
+  TextareaHTMLAttributes,
+} from "react";
 
 type FieldWrapProps = {
   id: string;
@@ -90,6 +95,36 @@ export function SelectInput({
       >
         {children}
       </select>
+    </FieldWrap>
+  );
+}
+
+type TextAreaProps = Omit<TextareaHTMLAttributes<HTMLTextAreaElement>, "id"> & {
+  id: string;
+  label: string;
+  hint?: string;
+  error?: string | null;
+};
+
+export function TextArea({
+  id,
+  label,
+  hint,
+  error,
+  className = "",
+  ...props
+}: TextAreaProps) {
+  const hintId = hint ? `${id}-hint` : undefined;
+  const errorId = error ? `${id}-error` : undefined;
+  return (
+    <FieldWrap id={id} label={label} hint={hint} error={error}>
+      <textarea
+        id={id}
+        aria-invalid={error ? true : undefined}
+        aria-describedby={[hintId, errorId].filter(Boolean).join(" ") || undefined}
+        className={`min-h-40 w-full rounded-md border border-line bg-card px-3 py-2 text-[15px] text-foreground outline-none placeholder:text-muted/70 focus:border-accent focus:ring-2 focus:ring-accent/20 ${className}`}
+        {...props}
+      />
     </FieldWrap>
   );
 }

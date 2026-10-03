@@ -9,6 +9,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import type { CustomDeadline } from "@/lib/deadlines/custom";
 import type { CompanyProfile } from "@/lib/profile";
 import {
   DEFAULT_APP_STATE,
@@ -16,6 +17,7 @@ import {
   writeState,
   type AppState,
   type DeadlineProgress,
+  type InboxDocument,
   type ThemePreference,
 } from "@/lib/storage";
 import { applyDocumentTheme } from "@/lib/theme";
@@ -28,6 +30,10 @@ type AppStateContextValue = {
   replaceState: (next: AppState) => void;
   resetState: () => void;
   setDeadlineProgress: (id: string, progress: DeadlineProgress) => void;
+  upsertDocument: (document: InboxDocument) => void;
+  updateDocument: (id: string, patch: Partial<InboxDocument>) => void;
+  upsertCustomDeadline: (deadline: CustomDeadline) => void;
+  removeCustomDeadline: (id: string) => void;
 };
 
 const AppStateContext = createContext<AppStateContextValue | null>(null);
@@ -90,6 +96,58 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     [persist, state],
   );
 
+  const upsertDocument = useCallback(
+    (document: InboxDocument) => {
+      const existing = state.documents.some((item) => item.id === document.id);
+      persist({
+        ...state,
+        documents: existing
+          ? state.documents.map((item) =>
+              item.id === document.id ? document : item,
+            )
+          : [document, ...state.documents],
+      });
+    },
+    [persist, state],
+  );
+
+  const updateDocument = useCallback(
+    (id: string, patch: Partial<InboxDocument>) => {
+      persist({
+        ...state,
+        documents: state.documents.map((item) =>
+          item.id === id ? { ...item, ...patch } : item,
+        ),
+      });
+    },
+    [persist, state],
+  );
+
+  const upsertCustomDeadline = useCallback(
+    (deadline: CustomDeadline) => {
+      const existing = state.customDeadlines.some((item) => item.id === deadline.id);
+      persist({
+        ...state,
+        customDeadlines: existing
+          ? state.customDeadlines.map((item) =>
+              item.id === deadline.id ? deadline : item,
+            )
+          : [...state.customDeadlines, deadline],
+      });
+    },
+    [persist, state],
+  );
+
+  const removeCustomDeadline = useCallback(
+    (id: string) => {
+      persist({
+        ...state,
+        customDeadlines: state.customDeadlines.filter((item) => item.id !== id),
+      });
+    },
+    [persist, state],
+  );
+
   const value = useMemo(
     () => ({
       hydrated,
@@ -99,15 +157,23 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       replaceState: persist,
       resetState,
       setDeadlineProgress,
+      upsertDocument,
+      updateDocument,
+      upsertCustomDeadline,
+      removeCustomDeadline,
     }),
     [
       hydrated,
       persist,
+      removeCustomDeadline,
       resetState,
       saveProfile,
       setDeadlineProgress,
       setTheme,
       state,
+      updateDocument,
+      upsertCustomDeadline,
+      upsertDocument,
     ],
   );
 

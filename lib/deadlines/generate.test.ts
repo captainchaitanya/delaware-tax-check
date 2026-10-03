@@ -243,6 +243,34 @@ describe("generateDeadlines", () => {
     expect(withLookback.some((item) => item.status === "overdue")).toBe(true);
   });
 
+  it("keeps a document deadline on its statutory Saturday with no roll", () => {
+    expect(weekday({ year: 2026, month: 1, day: 31 })).toBe(6);
+    const items = generateDeadlines(SAMPLE_PROFILE, {
+      year: 2026,
+      month: 1,
+      day: 15,
+    }, {
+      customDeadlines: [
+        {
+          id: "custom:doc-saturday",
+          title: "Reply to MCA notice",
+          isoDate: "2026-01-31",
+          jurisdiction: "India",
+          whatThisIs: "From the pasted notice.",
+          ifMissed: "Check the notice.",
+          source: "document",
+          documentId: "doc-1",
+        },
+      ],
+    });
+    const custom = items.find((item) => item.id === "custom:doc-saturday");
+    expect(custom?.isoDate).toBe("2026-01-31");
+    expect(custom?.rollConvention).toBe("none");
+    expect(custom?.effectiveDate).toBeNull();
+    expect(custom?.origin).toBe("document");
+    expect(custom?.appliesLabel).toBe("From your document");
+  });
+
   it("marks every generated rule as unverified", () => {
     expect(DEADLINE_RULES.every((rule) => rule.verified === false)).toBe(true);
     const items = generateDeadlines(SAMPLE_PROFILE, TODAY);

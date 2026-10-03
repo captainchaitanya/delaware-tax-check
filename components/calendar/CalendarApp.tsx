@@ -6,7 +6,7 @@ import { Badge, UnverifiedBadge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { TextInput } from "@/components/ui/Input";
+import { SelectInput, TextArea, TextInput } from "@/components/ui/Input";
 import { TabPanel, Tabs } from "@/components/ui/Tabs";
 import { useToast } from "@/components/ui/Toast";
 import {
@@ -15,13 +15,16 @@ import {
   daysInMonth,
   deadlinesToIcs,
   formatCivilDate,
+  customToGenerated,
   generateDeadlines,
   weekday,
   type CivilDate,
+  type CustomDeadline,
   type DeadlineStatus,
   type GeneratedDeadline,
   type Jurisdiction,
 } from "@/lib/deadlines";
+import { newId } from "@/lib/ids";
 
 const STATUS_LABEL: Record<DeadlineStatus, string> = {
   overdue: "Overdue",
@@ -31,13 +34,15 @@ const STATUS_LABEL: Record<DeadlineStatus, string> = {
 };
 
 export function CalendarApp() {
-  const { state, setDeadlineProgress } = useAppState();
+  const { state, setDeadlineProgress, upsertCustomDeadline, removeCustomDeadline } =
+    useAppState();
   const { notify } = useToast();
   const profile = state.profile;
   const [view, setView] = useState("list");
   const [query, setQuery] = useState("");
   const [jurisdiction, setJurisdiction] = useState<Jurisdiction | "all">("all");
   const [selected, setSelected] = useState<GeneratedDeadline | null>(null);
+  const [adding, setAdding] = useState(false);
   const [monthCursor, setMonthCursor] = useState<CivilDate>(() =>
     civilDateInTimeZone(new Date(), "America/New_York"),
   );
@@ -52,8 +57,11 @@ export function CalendarApp() {
     if (!profile) {
       return [];
     }
-    return generateDeadlines(profile, today, { lookbackDays: 90 });
-  }, [profile, today]);
+    return generateDeadlines(profile, today, {
+      lookbackDays: 90,
+      customDeadlines: state.customDeadlines,
+    });
+  }, [profile, state.customDeadlines, today]);
 
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase();
@@ -104,10 +112,26 @@ export function CalendarApp() {
             until you check the official source.
           </p>
         </div>
-        <Button variant="secondary" onClick={exportIcs}>
-          Export .ics
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="secondary" onClick={() => setAdding((open) => !open)}>
+            Add deadline
+          </Button>
+          <Button variant="secondary" onClick={exportIcs}>
+            Export .ics
+          </Button>
+        </div>
       </div>
+
+      {adding ? (
+        <AddDeadlineForm
+          onCancel={() => setAdding(false)}
+          onSave={(deadline) => {
+            upsertCustomDeadline(deadline);
+            setAdding(false);
+            notify("Deadline added");
+          }}
+        />
+      ) : null}
 
       <div className="mt-6 grid gap-4 md:grid-cols-[1fr_auto]">
         <TextInput
@@ -208,12 +232,23 @@ export function CalendarApp() {
         <DeadlineDrawer
           key={selected.id}
           item={selected}
+          stored={state.customDeadlines.find((item) => item.id === selected.id)}
           done={Boolean(state.deadlineProgress[selected.id]?.done)}
           notes={state.deadlineProgress[selected.id]?.notes ?? ""}
           onClose={() => setSelected(null)}
           onSave={(progress) => {
             setDeadlineProgress(selected.id, progress);
             notify(progress.done ? "Marked as done" : "Saved");
+          }}
+          onSaveCustom={(deadline) => {
+            upsertCustomDeadline(deadline);
+            setSelected(customToGenerated(deadline, today));
+            notify("Deadline updated");
+          }}
+          onRemoveCustom={() => {
+            removeCustomDeadline(selected.id);
+            setSelected(null);
+            notify("Deadline removed");
           }}
         />
       ) : null}
@@ -250,6 +285,7 @@ function DeadlineRow({
       </div>
       <div className="flex flex-col items-end gap-1">
         <StatusChip status={item.status} done={done} />
+        {item.origin === "document" ? <Badge>From your document</Badge> : null}
         {item.verified ? null : <UnverifiedBadge />}
       </div>
     </button>
@@ -356,21 +392,116 @@ function MonthGrid({
   );
 }
 
+function AddDeadlineForm({
+  onSave,
+  onCancel,
+}: {
+  onSave: (deadline: CustomDeadline) => void;
+  onCancel: () => void;
+}) {
+  const [title, setTitle] = useState("");
+  const [isoDate, setIsoDate] = useState("");
+  const [jurisdiction, setJurisdiction] = useState<Jurisdiction>("US-Delaware");
+  const [whatThisIs, setWhatThisIs] = useState("");
+
+  return (
+    <Card className="mt-6">
+      <h2 className="font-serif text-xl font-medium">Add a deadline</h2>
+      <p className="mt-1 text-sm text-muted">
+        Custom dates stay on the statutory day. They are not shifted for weekends.
+      </p>
+      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        <TextInput
+          id="manual-title"
+          label="Title"
+          value={title}
+          onChange={(event) => setTitle(event.target.value)}
+        />
+        <TextInput
+          id="manual-date"
+          label="Statutory date"
+          type="date"
+          value={isoDate}
+          onChange={(event) => setIsoDate(event.target.value)}
+        />
+      </div>
+      <div className="mt-3">
+        <SelectInput
+          id="manual-jurisdiction"
+          label="Jurisdiction"
+          value={jurisdiction}
+          onChange={(event) =>
+            setJurisdiction(event.target.value as Jurisdiction)
+          }
+        >
+          <option value="US-Delaware">US-Delaware</option>
+          <option value="US-Federal">US-Federal</option>
+          <option value="India">India</option>
+        </SelectInput>
+      </div>
+      <div className="mt-3">
+        <TextArea
+          id="manual-what"
+          label="What this is"
+          className="min-h-24"
+          value={whatThisIs}
+          onChange={(event) => setWhatThisIs(event.target.value)}
+        />
+      </div>
+      <div className="mt-4 flex flex-wrap gap-2">
+        <Button
+          onClick={() => {
+            if (!title.trim() || !isoDate) {
+              return;
+            }
+            onSave({
+              id: newId("custom"),
+              title: title.trim(),
+              isoDate,
+              jurisdiction,
+              whatThisIs: whatThisIs.trim() || "Added by you.",
+              ifMissed: "Confirm the official source before you treat this as final.",
+              source: "manual",
+              documentId: null,
+            });
+          }}
+          disabled={!title.trim() || !isoDate}
+        >
+          Save deadline
+        </Button>
+        <Button variant="ghost" onClick={onCancel}>
+          Cancel
+        </Button>
+      </div>
+    </Card>
+  );
+}
+
 function DeadlineDrawer({
   item,
+  stored,
   done,
   notes,
   onClose,
   onSave,
+  onSaveCustom,
+  onRemoveCustom,
 }: {
   item: GeneratedDeadline;
+  stored?: CustomDeadline;
   done: boolean;
   notes: string;
   onClose: () => void;
   onSave: (progress: { done: boolean; notes: string }) => void;
+  onSaveCustom: (deadline: CustomDeadline) => void;
+  onRemoveCustom: () => void;
 }) {
   const [draftNotes, setDraftNotes] = useState(notes);
   const [draftDone, setDraftDone] = useState(done);
+  const [draftTitle, setDraftTitle] = useState(item.title);
+  const [draftDate, setDraftDate] = useState(item.isoDate);
+  const [draftWhat, setDraftWhat] = useState(item.whatThisIs);
+  const custom = Boolean(stored);
 
   return (
     <div
@@ -389,7 +520,7 @@ function DeadlineDrawer({
             id="deadline-drawer-title"
             className="font-serif text-2xl font-medium"
           >
-            {item.title}
+            {custom ? draftTitle : item.title}
           </h2>
           <Button variant="ghost" onClick={onClose}>
             Close
@@ -411,10 +542,35 @@ function DeadlineDrawer({
         ) : null}
         <div className="mt-3 flex flex-wrap gap-2">
           <StatusChip status={item.status} done={draftDone} />
+          {item.origin === "document" ? <Badge>From your document</Badge> : null}
           <UnverifiedBadge />
         </div>
+        {custom ? (
+          <div className="mt-5 flex flex-col gap-3">
+            <TextInput
+              id="edit-custom-title"
+              label="Title"
+              value={draftTitle}
+              onChange={(event) => setDraftTitle(event.target.value)}
+            />
+            <TextInput
+              id="edit-custom-date"
+              label="Statutory date"
+              type="date"
+              value={draftDate}
+              onChange={(event) => setDraftDate(event.target.value)}
+            />
+            <TextArea
+              id="edit-custom-what"
+              label="What this is"
+              className="min-h-24"
+              value={draftWhat}
+              onChange={(event) => setDraftWhat(event.target.value)}
+            />
+          </div>
+        ) : null}
         <div className="mt-5 flex flex-col gap-4 text-sm leading-6">
-          <p>{item.whatThisIs}</p>
+          {custom ? null : <p>{item.whatThisIs}</p>}
           <p>
             <span className="font-medium">Who it applies to. </span>
             {item.appliesLabel}
@@ -423,16 +579,18 @@ function DeadlineDrawer({
             <span className="font-medium">If missed. </span>
             {item.ifMissed}
           </p>
-          <p>
-            <a
-              href={item.sourceUrl}
-              className="text-accent underline underline-offset-4"
-              target="_blank"
-              rel="noreferrer"
-            >
-              Official source
-            </a>
-          </p>
+          {item.sourceUrl ? (
+            <p>
+              <a
+                href={item.sourceUrl}
+                className="text-accent underline underline-offset-4"
+                target="_blank"
+                rel="noreferrer"
+              >
+                Official source
+              </a>
+            </p>
+          ) : null}
         </div>
         <label className="mt-6 flex items-center gap-2 text-sm">
           <input
@@ -451,12 +609,27 @@ function DeadlineDrawer({
           onChange={(event) => setDraftNotes(event.target.value)}
           className="mt-1 min-h-28 rounded-md border border-line bg-background px-3 py-2 text-sm"
         />
-        <div className="mt-4">
+        <div className="mt-4 flex flex-wrap gap-2">
           <Button
-            onClick={() => onSave({ done: draftDone, notes: draftNotes })}
+            onClick={() => {
+              if (stored) {
+                onSaveCustom({
+                  ...stored,
+                  title: draftTitle.trim() || stored.title,
+                  isoDate: draftDate || stored.isoDate,
+                  whatThisIs: draftWhat.trim() || stored.whatThisIs,
+                });
+              }
+              onSave({ done: draftDone, notes: draftNotes });
+            }}
           >
             Save
           </Button>
+          {custom ? (
+            <Button variant="secondary" onClick={onRemoveCustom}>
+              Remove
+            </Button>
+          ) : null}
         </div>
       </aside>
     </div>
