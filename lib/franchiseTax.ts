@@ -46,6 +46,7 @@ export type CompareResult = {
   winningMethod: WinningMethod;
   assumedPar: string;
   assumedParValueCapital: string;
+  classBreakdown: ClassBreakdown[];
   quarterlySchedule: QuarterlyPayment[] | null;
 };
 
@@ -172,6 +173,7 @@ export function compare(input: FranchiseTaxInput): CompareResult {
     winningMethod,
     assumedPar: apvc.assumedPar,
     assumedParValueCapital: apvc.assumedParValueCapital,
+    classBreakdown: apvc.classBreakdown,
     quarterlySchedule: buildQuarterlySchedule(lowerTax),
   };
 }
