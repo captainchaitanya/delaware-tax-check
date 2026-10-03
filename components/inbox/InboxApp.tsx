@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useLayoutEffect, useMemo, useState } from "react";
 import { useAppState } from "@/components/app/AppState";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -19,6 +19,15 @@ import {
   type ExtractOutcome,
   type ExtractionResult,
 } from "@/lib/llm";
+import {
+  demoModeFromPayload,
+  demoStatusCopy,
+  demoStatusFromFlag,
+  peekMemoryDemoMode,
+  readCachedDemoMode,
+  writeCachedDemoMode,
+  type DemoStatus,
+} from "@/lib/llm/demoStatus";
 import {
   civilDateInTimeZone,
   formatCivilDate,
@@ -50,8 +59,16 @@ export function InboxApp() {
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [demoMode, setDemoMode] = useState(true);
+  const [demoMode, setDemoMode] = useState<boolean | null>(() =>
+    peekMemoryDemoMode(),
+  );
   const [review, setReview] = useState<ReviewDraft | null>(null);
+  const demoStatus = demoStatusFromFlag(demoMode);
+
+  function applyDemoMode(next: boolean) {
+    writeCachedDemoMode(next);
+    setDemoMode(next);
+  }
   const today = useMemo(
     () => civilDateInTimeZone(new Date(), "America/New_York"),
     [],
@@ -75,24 +92,38 @@ export function InboxApp() {
     );
   }, [review, state.profile, today]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
+    if (demoMode !== null) {
+      return;
+    }
+    const cached = readCachedDemoMode();
+    if (cached !== null) {
+      setDemoMode(cached);
+      return;
+    }
     let cancelled = false;
     fetch("/api/extract")
       .then((response) => response.json())
-      .then((payload: { demoMode?: boolean }) => {
-        if (!cancelled) {
-          setDemoMode(Boolean(payload.demoMode));
+      .then((payload: { demoMode?: unknown }) => {
+        if (cancelled) {
+          return;
         }
+        const next = demoModeFromPayload(payload);
+        if (next === null) {
+          setDemoMode(false);
+          return;
+        }
+        applyDemoMode(next);
       })
       .catch(() => {
         if (!cancelled) {
-          setDemoMode(true);
+          setDemoMode(false);
         }
       });
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [demoMode]);
 
   const sortedDocuments = useMemo(
     () =>
@@ -111,7 +142,10 @@ export function InboxApp() {
       });
       const payload = (await response.json()) as ExtractOutcome;
       if (!(payload.ok && payload.sampleResult)) {
-        setDemoMode(payload.demoMode);
+        const next = demoModeFromPayload(payload);
+        if (next !== null) {
+          applyDemoMode(next);
+        }
       }
       if (!payload.ok) {
         setError(payload.error);
@@ -253,7 +287,7 @@ export function InboxApp() {
     return (
       <ReviewScreen
         review={review}
-        demoMode={review.document.demoMode || demoMode}
+        demoMode={review.document.demoMode || demoMode === true}
         sampleResult={review.document.sampleResult}
         onChange={setReview}
         onBack={() => setReview(null)}
@@ -283,7 +317,7 @@ export function InboxApp() {
             confirm it.
           </p>
         </div>
-        {demoMode ? <Badge>Demo mode</Badge> : null}
+        <DemoStatusMark status={demoStatus} />
       </div>
 
       <Card className="mt-8">
@@ -394,6 +428,21 @@ export function InboxApp() {
       </section>
     </main>
   );
+}
+
+function DemoStatusMark({ status }: { status: DemoStatus }) {
+  const copy = demoStatusCopy(status);
+  if (status === "checking") {
+    return (
+      <span className="inline-flex h-[22px] w-[6.75rem] items-center justify-end text-[11px] font-medium uppercase tracking-wide text-muted">
+        {copy}
+      </span>
+    );
+  }
+  if (status === "demo") {
+    return <Badge>{copy}</Badge>;
+  }
+  return null;
 }
 
 function ReviewScreen({
