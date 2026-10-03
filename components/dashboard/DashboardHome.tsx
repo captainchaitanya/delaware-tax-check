@@ -1,11 +1,22 @@
 "use client";
 
+import { useMemo } from "react";
 import { useAppState } from "@/components/app/AppState";
 import { UnverifiedBadge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { LinkButton } from "@/components/ui/LinkButton";
 import { Stat } from "@/components/ui/Stat";
+import {
+  civilDateInTimeZone,
+  formatCivilDate,
+  generateDeadlines,
+} from "@/lib/deadlines";
+import {
+  overdueCount,
+  quarterCompletion,
+  upcomingDeadlines,
+} from "@/lib/deadlines/stats";
 import { formatUsd } from "@/lib/format";
 import { franchiseEstimateFromProfile } from "@/lib/franchiseEstimate";
 import { greetingFor } from "@/lib/greeting";
@@ -14,11 +25,25 @@ import { TAX_CONFIG } from "@/lib/taxConfig";
 export function DashboardHome() {
   const { state } = useAppState();
   const profile = state.profile;
+  const today = useMemo(
+    () => civilDateInTimeZone(new Date(), "America/New_York"),
+    [],
+  );
+  const items = useMemo(
+    () =>
+      profile
+        ? generateDeadlines(profile, today, { lookbackDays: 90 })
+        : [],
+    [profile, today],
+  );
+  const next = upcomingDeadlines(items, 5);
+  const overdue = overdueCount(items, state.deadlineProgress);
+  const quarter = quarterCompletion(items, today, state.deadlineProgress);
+  const estimate = franchiseEstimateFromProfile(profile);
+
   if (!profile) {
     return null;
   }
-
-  const estimate = franchiseEstimateFromProfile(profile);
 
   return (
     <main className="mx-auto w-full max-w-5xl px-4 py-8 lg:py-10">
@@ -34,18 +59,18 @@ export function DashboardHome() {
       <div className="mt-8 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Stat
           label="Next deadline"
-          value="—"
-          hint="Appears when the calendar has dates"
+          value={next[0] ? formatCivilDate(next[0].date) : "—"}
+          hint={next[0]?.title ?? "No upcoming date in the next 12 months"}
         />
         <Stat
           label="Overdue"
-          value="—"
-          hint="Filings past their due date"
+          value={String(overdue)}
+          hint={overdue === 0 ? "Nothing past due" : "Still open"}
         />
         <Stat
           label="Done this quarter"
-          value="—"
-          hint="Marked complete in this quarter"
+          value={quarter.total === 0 ? "—" : `${quarter.done}/${quarter.total}`}
+          hint="Marked complete among this quarter's filings"
         />
         <Stat
           label="Est. annual cost"
@@ -61,20 +86,44 @@ export function DashboardHome() {
       <div className="mt-8 grid gap-4 md:grid-cols-2">
         <Card>
           <h2 className="mb-3 font-serif text-xl font-medium">Next deadlines</h2>
-          <EmptyState
-            title="No upcoming dates yet"
-            body={`Your deadlines will appear here once the calendar is set up for ${profile.companyName}.`}
-            action={<LinkButton href="/calendar">Open Calendar</LinkButton>}
-          />
+          {next.length === 0 ? (
+            <EmptyState
+              title="No upcoming dates yet"
+              body={`Your deadlines will appear here once the calendar is set up for ${profile.companyName}.`}
+              action={<LinkButton href="/calendar">Open Calendar</LinkButton>}
+            />
+          ) : (
+            <ul className="flex flex-col gap-3">
+              {next.map((item) => (
+                <li key={item.id} className="flex justify-between gap-3 text-sm">
+                  <span>{item.title}</span>
+                  <span className="font-mono tabular-nums text-muted">
+                    {formatCivilDate(item.date)}
+                  </span>
+                </li>
+              ))}
+              <li>
+                <LinkButton href="/calendar">Open Calendar</LinkButton>
+              </li>
+            </ul>
+          )}
         </Card>
 
         <Card>
           <h2 className="mb-3 font-serif text-xl font-medium">Action items</h2>
-          <EmptyState
-            title="You're clear"
-            body="Nothing needs your attention right now."
-            action={<LinkButton href="/inbox">Open Inbox</LinkButton>}
-          />
+          {overdue === 0 ? (
+            <EmptyState
+              title="You're clear"
+              body="Nothing needs your attention right now."
+              action={<LinkButton href="/inbox">Open Inbox</LinkButton>}
+            />
+          ) : (
+            <EmptyState
+              title={`${overdue} overdue filing${overdue === 1 ? "" : "s"}`}
+              body="Open the calendar to mark them done or add a note."
+              action={<LinkButton href="/calendar">Review overdue</LinkButton>}
+            />
+          )}
         </Card>
 
         <Card>

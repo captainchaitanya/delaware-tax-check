@@ -15,6 +15,7 @@ import {
   readState,
   writeState,
   type AppState,
+  type DeadlineProgress,
   type ThemePreference,
 } from "@/lib/storage";
 import { applyDocumentTheme } from "@/lib/theme";
@@ -26,6 +27,7 @@ type AppStateContextValue = {
   setTheme: (theme: ThemePreference) => void;
   replaceState: (next: AppState) => void;
   resetState: () => void;
+  setDeadlineProgress: (id: string, progress: DeadlineProgress) => void;
 };
 
 const AppStateContext = createContext<AppStateContextValue | null>(null);
@@ -75,6 +77,19 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     persist(DEFAULT_APP_STATE);
   }, [persist]);
 
+  const setDeadlineProgress = useCallback(
+    (id: string, progress: DeadlineProgress) => {
+      persist({
+        ...state,
+        deadlineProgress: {
+          ...state.deadlineProgress,
+          [id]: progress,
+        },
+      });
+    },
+    [persist, state],
+  );
+
   const value = useMemo(
     () => ({
       hydrated,
@@ -83,8 +98,17 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       setTheme,
       replaceState: persist,
       resetState,
+      setDeadlineProgress,
     }),
-    [hydrated, persist, resetState, saveProfile, setTheme, state],
+    [
+      hydrated,
+      persist,
+      resetState,
+      saveProfile,
+      setDeadlineProgress,
+      setTheme,
+      state,
+    ],
   );
 
   return (

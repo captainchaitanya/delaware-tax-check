@@ -5,22 +5,38 @@ export const STORAGE_KEY = "founder-desk-v1";
 
 export type ThemePreference = "light" | "dark" | "system";
 
+export type DeadlineProgress = {
+  done: boolean;
+  notes: string;
+};
+
 export type AppState = {
   version: 1;
   profile: CompanyProfile | null;
   theme: ThemePreference;
+  deadlineProgress: Record<string, DeadlineProgress>;
 };
 
 const appStateSchema = z.object({
   version: z.literal(1),
   profile: companyProfileSchema.nullable(),
   theme: z.enum(["light", "dark", "system"]),
+  deadlineProgress: z
+    .record(
+      z.string(),
+      z.object({
+        done: z.boolean(),
+        notes: z.string(),
+      }),
+    )
+    .default({}),
 });
 
 export const DEFAULT_APP_STATE: AppState = {
   version: 1,
   profile: null,
   theme: "system",
+  deadlineProgress: {},
 };
 
 function getLocalStorage(): Storage | null {
