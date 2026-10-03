@@ -1,4 +1,9 @@
-import { ExtractError, providerErrorToExtractError } from "./errors";
+import {
+  ExtractError,
+  INVALID_FORMAT_MESSAGE,
+  logExtractDebug,
+  providerErrorToExtractError,
+} from "./errors";
 import type { ExtractOutcome, ExtractSuccess } from "./outcome";
 import { extractWithAnthropic } from "./providers/anthropic";
 import { extractWithGemini } from "./providers/gemini";
@@ -42,10 +47,15 @@ async function callProvider(
 function parseResult(raw: unknown): ExtractionResult {
   const parsed = extractionResultSchema.safeParse(raw);
   if (!parsed.success) {
-    throw new ExtractError(
-      "invalid",
-      "The model returned something we could not use. Try again.",
-    );
+    logExtractDebug({
+      stage: "zod",
+      message: "Zod rejected the model JSON",
+      issues: parsed.error.issues.map((issue) => ({
+        path: issue.path.join(".") || "(root)",
+        code: issue.code,
+      })),
+    });
+    throw new ExtractError("invalid", INVALID_FORMAT_MESSAGE);
   }
   const clipped = clipExtraction(parsed.data);
   if (!clipped.relevant) {
@@ -116,6 +126,9 @@ export async function extractDocument(
       return success(result, resolution, { sampleResult: false });
     } catch (error) {
       if (error instanceof ExtractError && error.code !== "invalid") {
+        throw error;
+      }
+      if (!(error instanceof ExtractError) && !(error instanceof SyntaxError)) {
         throw error;
       }
       const retry = await extractOnce(trimmed, resolution, deps.callProvider);

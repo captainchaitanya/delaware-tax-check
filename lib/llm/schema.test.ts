@@ -14,6 +14,65 @@ describe("extraction schema", () => {
     }
   });
 
+  it("coerces numeric strings and YYYY-MM-DD prefixes without accepting garbage", () => {
+    const parsed = extractionResultSchema.safeParse({
+      relevant: true,
+      documentType: "other",
+      issuer: "Agent",
+      summary: "A notice",
+      fields: [
+        {
+          key: "tax",
+          label: "Tax",
+          value: 400,
+          quote: "tax 400",
+          confidence: "high",
+        },
+      ],
+      shareClasses: [
+        {
+          name: "Common",
+          authorized: 1000,
+          parValue: 0.00001,
+          quote: "1000 shares",
+          confidence: "medium",
+        },
+      ],
+      deadline: {
+        title: "Due",
+        isoDate: "2027-03-01T15:04:05Z",
+        action: "File",
+        quote: "due 2027-03-01",
+        confidence: "high",
+      },
+      requiredAction: "File",
+    });
+    expect(parsed.success).toBe(true);
+    if (parsed.success) {
+      expect(parsed.data.fields[0]?.value).toBe("400");
+      expect(parsed.data.shareClasses[0]?.authorized).toBe("1000");
+      expect(parsed.data.deadline?.isoDate).toBe("2027-03-01");
+    }
+
+    const garbage = extractionResultSchema.safeParse({
+      relevant: true,
+      documentType: "other",
+      issuer: "Agent",
+      summary: "A notice",
+      fields: [],
+      shareClasses: [],
+      deadline: {
+        title: "Due",
+        isoDate: "March 1, 2027",
+        action: "File",
+        quote: "March",
+        confidence: "high",
+      },
+      requiredAction: "File",
+    });
+    expect(garbage.success).toBe(false);
+  });
+
   it("rejects a result missing required fields", () => {
     const parsed = extractionResultSchema.safeParse({
       relevant: true,

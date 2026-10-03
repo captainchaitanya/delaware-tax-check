@@ -2,6 +2,31 @@ import { z } from "zod";
 
 export const MAX_DOCUMENT_CHARS = 20_000;
 
+function asNonEmptyString(value: unknown): unknown {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return String(value);
+  }
+  if (typeof value === "boolean") {
+    return value ? "true" : "false";
+  }
+  return value;
+}
+
+function asIsoDate(value: unknown): unknown {
+  if (typeof value !== "string") {
+    return value;
+  }
+  const trimmed = value.trim();
+  const day = /^(\d{4}-\d{2}-\d{2})/.exec(trimmed);
+  return day ? day[1] : trimmed;
+}
+
+const requiredString = z.preprocess(asNonEmptyString, z.string().min(1));
+const isoDateString = z.preprocess(
+  asIsoDate,
+  z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+);
+
 export const DOCUMENT_TYPES = [
   "delaware_franchise_tax_notice",
   "certificate_of_incorporation",
@@ -18,26 +43,26 @@ export type DocumentType = (typeof DOCUMENT_TYPES)[number];
 export type Confidence = (typeof CONFIDENCE_LEVELS)[number];
 
 export const extractedFieldSchema = z.object({
-  key: z.string().min(1),
-  label: z.string().min(1),
-  value: z.string().min(1),
-  quote: z.string().min(1),
+  key: requiredString,
+  label: requiredString,
+  value: requiredString,
+  quote: requiredString,
   confidence: z.enum(CONFIDENCE_LEVELS),
 });
 
 export const shareClassExtractSchema = z.object({
-  name: z.string().min(1),
-  authorized: z.string().min(1),
-  parValue: z.string().min(1),
-  quote: z.string().min(1),
+  name: requiredString,
+  authorized: requiredString,
+  parValue: requiredString,
+  quote: requiredString,
   confidence: z.enum(CONFIDENCE_LEVELS),
 });
 
 export const extractedDeadlineSchema = z.object({
-  title: z.string().min(1),
-  isoDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  action: z.string().min(1),
-  quote: z.string().min(1),
+  title: requiredString,
+  isoDate: isoDateString,
+  action: requiredString,
+  quote: requiredString,
   confidence: z.enum(CONFIDENCE_LEVELS),
 });
 
@@ -127,21 +152,16 @@ export const EXTRACTION_JSON_SCHEMA = {
       },
     },
     deadline: {
-      anyOf: [
-        { type: "null" },
-        {
-          type: "object",
-          additionalProperties: false,
-          required: ["title", "isoDate", "action", "quote", "confidence"],
-          properties: {
-            title: { type: "string" },
-            isoDate: { type: "string" },
-            action: { type: "string" },
-            quote: { type: "string" },
-            confidence: { type: "string", enum: [...CONFIDENCE_LEVELS] },
-          },
-        },
-      ],
+      type: ["object", "null"],
+      additionalProperties: false,
+      required: ["title", "isoDate", "action", "quote", "confidence"],
+      properties: {
+        title: { type: "string" },
+        isoDate: { type: "string" },
+        action: { type: "string" },
+        quote: { type: "string" },
+        confidence: { type: "string", enum: [...CONFIDENCE_LEVELS] },
+      },
     },
     requiredAction: { type: "string" },
   },

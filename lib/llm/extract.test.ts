@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
-import { QUOTA_EXHAUSTED_MESSAGE } from "./errors";
+import {
+  CONFIG_MESSAGE,
+  INVALID_FORMAT_MESSAGE,
+  QUOTA_EXHAUSTED_MESSAGE,
+} from "./errors";
 import { extractDocument } from "./extract";
 import { MAX_DOCUMENT_CHARS } from "./schema";
 import { SAMPLE_DOCUMENTS } from "./samples";
@@ -92,6 +96,33 @@ describe("extractDocument", () => {
     if (!outcome.ok) {
       expect(outcome.code).toBe("quota");
       expect(outcome.error).toBe(QUOTA_EXHAUSTED_MESSAGE);
+    }
+  });
+
+  it("maps a missing model to the config message", async () => {
+    const outcome = await extractDocument(PASTED_NOTICE, liveEnv, {
+      callProvider: async () => {
+        throw Object.assign(
+          new Error("This model models/gemini-2.5-flash is no longer available"),
+          { status: 404 },
+        );
+      },
+    });
+    expect(outcome.ok).toBe(false);
+    if (!outcome.ok) {
+      expect(outcome.code).toBe("config");
+      expect(outcome.error).toBe(CONFIG_MESSAGE);
+    }
+  });
+
+  it("maps a validation failure to the format message", async () => {
+    const outcome = await extractDocument(PASTED_NOTICE, liveEnv, {
+      callProvider: async () => ({ relevant: true, documentType: "other" }),
+    });
+    expect(outcome.ok).toBe(false);
+    if (!outcome.ok) {
+      expect(outcome.code).toBe("invalid");
+      expect(outcome.error).toBe(INVALID_FORMAT_MESSAGE);
     }
   });
 });
