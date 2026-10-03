@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import {
   createContext,
   useCallback,
@@ -9,20 +10,35 @@ import {
   type ReactNode,
 } from "react";
 
+export type ToastAction = {
+  href: string;
+  label: string;
+};
+
 type ToastContextValue = {
-  notify: (message: string) => void;
+  notify: (message: string, action?: ToastAction) => void;
 };
 
 const ToastContext = createContext<ToastContextValue | null>(null);
 
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [message, setMessage] = useState<string | null>(null);
+  const [action, setAction] = useState<ToastAction | null>(null);
 
-  const notify = useCallback((next: string) => {
+  const notify = useCallback((next: string, nextAction?: ToastAction) => {
     setMessage(next);
-    window.setTimeout(() => {
-      setMessage((current) => (current === next ? null : current));
-    }, 3200);
+    setAction(nextAction ?? null);
+    window.setTimeout(
+      () => {
+        setMessage((current) => (current === next ? null : current));
+        setAction((current) =>
+          current?.href === nextAction?.href && current?.label === nextAction?.label
+            ? null
+            : current,
+        );
+      },
+      nextAction ? 6000 : 3200,
+    );
   }, []);
 
   const value = useMemo(() => ({ notify }), [notify]);
@@ -35,8 +51,19 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         className="pointer-events-none fixed inset-x-0 bottom-20 z-50 flex justify-center px-4 lg:bottom-6"
       >
         {message ? (
-          <p className="rounded-md border border-line bg-card px-4 py-2 text-sm text-foreground shadow-sm">
+          <p className="pointer-events-auto rounded-md border border-line bg-card px-4 py-2 text-sm text-foreground shadow-sm">
             {message}
+            {action ? (
+              <>
+                {" "}
+                <Link
+                  href={action.href}
+                  className="font-medium text-accent underline underline-offset-4"
+                >
+                  {action.label}
+                </Link>
+              </>
+            ) : null}
           </p>
         ) : null}
       </div>

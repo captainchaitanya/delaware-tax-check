@@ -123,7 +123,7 @@ export function InboxApp() {
   }
 
   function addDeadline() {
-    if (!review || !state.profile) {
+    if (!review) {
       return;
     }
     const extraction = {
@@ -154,7 +154,10 @@ export function InboxApp() {
     );
     upsertDocument(document);
     setReview({ ...review, document });
-    notify("Deadline added to the calendar");
+    notify("Deadline added to the calendar", {
+      href: "/calendar",
+      label: "View in calendar",
+    });
     capture(ANALYTICS_EVENTS.documentAddedToCalendar);
   }
 

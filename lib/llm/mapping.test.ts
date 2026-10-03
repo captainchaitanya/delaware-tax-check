@@ -35,4 +35,20 @@ describe("extraction mapping", () => {
     });
     expect(DOCUMENT_TYPE_LABEL.delaware_franchise_tax_notice).toMatch(/franchise/i);
   });
+
+  it("maps an AOC-4 review to a document calendar deadline", () => {
+    const notice = SAMPLE_DOCUMENTS.find((sample) => sample.id === "mca-notice");
+    const deadline = customDeadlineFromExtraction(notice!.result, "doc-aoc4", {
+      title: "Form AOC-4 Filing Deadline",
+      isoDate: "2026-10-26",
+      action: "File Form AOC-4 on the MCA portal.",
+    });
+    expect(deadline).toMatchObject({
+      id: "custom:doc-aoc4",
+      title: "Form AOC-4 Filing Deadline",
+      isoDate: "2026-10-26",
+      source: "document",
+      jurisdiction: "India",
+    });
+  });
 });

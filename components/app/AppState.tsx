@@ -62,23 +62,29 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     return () => media.removeEventListener("change", onChange);
   }, [hydrated, state.theme]);
 
-  const persist = useCallback((next: AppState) => {
-    setState(next);
-    writeState(next);
-  }, []);
+  const persist = useCallback(
+    (next: AppState | ((prev: AppState) => AppState)) => {
+      setState((prev) => {
+        const resolved = typeof next === "function" ? next(prev) : next;
+        writeState(resolved);
+        return resolved;
+      });
+    },
+    [],
+  );
 
   const saveProfile = useCallback(
     (profile: CompanyProfile) => {
-      persist({ ...state, profile });
+      persist((prev) => ({ ...prev, profile }));
     },
-    [persist, state],
+    [persist],
   );
 
   const setTheme = useCallback(
     (theme: ThemePreference) => {
-      persist({ ...state, theme });
+      persist((prev) => ({ ...prev, theme }));
     },
-    [persist, state],
+    [persist],
   );
 
   const resetState = useCallback(() => {
@@ -87,74 +93,80 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
 
   const setDeadlineProgress = useCallback(
     (id: string, progress: DeadlineProgress) => {
-      persist({
-        ...state,
+      persist((prev) => ({
+        ...prev,
         deadlineProgress: {
-          ...state.deadlineProgress,
+          ...prev.deadlineProgress,
           [id]: progress,
         },
-      });
+      }));
     },
-    [persist, state],
+    [persist],
   );
 
   const upsertDocument = useCallback(
     (document: InboxDocument) => {
-      const existing = state.documents.some((item) => item.id === document.id);
-      persist({
-        ...state,
-        documents: existing
-          ? state.documents.map((item) =>
-              item.id === document.id ? document : item,
-            )
-          : [document, ...state.documents],
+      persist((prev) => {
+        const existing = prev.documents.some((item) => item.id === document.id);
+        return {
+          ...prev,
+          documents: existing
+            ? prev.documents.map((item) =>
+                item.id === document.id ? document : item,
+              )
+            : [document, ...prev.documents],
+        };
       });
     },
-    [persist, state],
+    [persist],
   );
 
   const updateDocument = useCallback(
     (id: string, patch: Partial<InboxDocument>) => {
-      persist({
-        ...state,
-        documents: state.documents.map((item) =>
+      persist((prev) => ({
+        ...prev,
+        documents: prev.documents.map((item) =>
           item.id === id ? { ...item, ...patch } : item,
         ),
-      });
+      }));
     },
-    [persist, state],
+    [persist],
   );
 
   const upsertCustomDeadline = useCallback(
     (deadline: CustomDeadline) => {
-      const existing = state.customDeadlines.some((item) => item.id === deadline.id);
-      persist({
-        ...state,
-        customDeadlines: existing
-          ? state.customDeadlines.map((item) =>
-              item.id === deadline.id ? deadline : item,
-            )
-          : [...state.customDeadlines, deadline],
+      persist((prev) => {
+        const existing = prev.customDeadlines.some(
+          (item) => item.id === deadline.id,
+        );
+        return {
+          ...prev,
+          customDeadlines: existing
+            ? prev.customDeadlines.map((item) =>
+                item.id === deadline.id ? deadline : item,
+              )
+            : [...prev.customDeadlines, deadline],
+        };
       });
     },
-    [persist, state],
+    [persist],
   );
 
   const removeCustomDeadline = useCallback(
     (id: string) => {
-      persist({
-        ...state,
-        customDeadlines: state.customDeadlines.filter((item) => item.id !== id),
-      });
+      persist((prev) => ({
+        ...prev,
+        customDeadlines: prev.customDeadlines.filter((item) => item.id !== id),
+      }));
     },
-    [persist, state],
+    [persist],
   );
 
   const setExtraCostEstimates = useCallback(
     (extraCostEstimates: ExtraCostEstimates) => {
-      persist({ ...state, extraCostEstimates });
+      persist((prev) => ({ ...prev, extraCostEstimates }));
     },
-    [persist, state],
+    [persist],
   );
 
   const value = useMemo(

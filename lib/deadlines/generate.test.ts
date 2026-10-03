@@ -3,6 +3,7 @@ import { SAMPLE_PROFILE } from "../profile";
 import { civilDateInTimeZone, weekday } from "./civilDate";
 import { generateDeadlines } from "./generate";
 import { DEADLINE_RULES, type DeadlineRule } from "./rules";
+import { upcomingDeadlines } from "./stats";
 
 const TODAY = { year: 2026, month: 10, day: 3 };
 
@@ -379,6 +380,33 @@ describe("generateDeadlines", () => {
     expect(custom?.effectiveDate).toBeNull();
     expect(custom?.origin).toBe("document");
     expect(custom?.appliesLabel).toBe("From your document");
+  });
+
+  it("shows a document deadline on the calendar and dashboard lists", () => {
+    const custom = {
+      id: "custom:doc-aoc4",
+      title: "Form AOC-4 Filing Deadline",
+      isoDate: "2026-10-26",
+      jurisdiction: "India" as const,
+      whatThisIs: "File Form AOC-4 on the MCA portal.",
+      ifMissed: "Additional MCA fees can apply.",
+      source: "document" as const,
+      documentId: "doc-aoc4",
+    };
+    const items = generateDeadlines(SAMPLE_PROFILE, TODAY, {
+      lookbackDays: 90,
+      customDeadlines: [custom],
+    });
+    const found = items.find((item) => item.id === custom.id);
+    expect(found).toMatchObject({
+      title: "Form AOC-4 Filing Deadline",
+      isoDate: "2026-10-26",
+      appliesLabel: "From your document",
+      origin: "document",
+    });
+    expect(
+      upcomingDeadlines(items, 5).some((item) => item.id === custom.id),
+    ).toBe(true);
   });
 
   it("copies verification status from each rule", () => {
