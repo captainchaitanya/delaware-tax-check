@@ -1,10 +1,10 @@
 "use client";
 
-import Link from "next/link";
 import { useAppState } from "@/components/app/AppState";
-import { Badge, UnverifiedBadge } from "@/components/ui/Badge";
+import { UnverifiedBadge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { LinkButton } from "@/components/ui/LinkButton";
 import { Stat } from "@/components/ui/Stat";
 import { formatUsd } from "@/lib/format";
 import { franchiseEstimateFromProfile } from "@/lib/franchiseEstimate";
@@ -21,52 +21,59 @@ export function DashboardHome() {
   const estimate = franchiseEstimateFromProfile(profile);
 
   return (
-    <main className="mx-auto w-full max-w-5xl px-4 py-8 pb-24 lg:py-10">
+    <main className="mx-auto w-full max-w-5xl px-4 py-8 lg:py-10">
       <p className="text-sm text-muted">Dashboard</p>
       <h1 className="mt-1 font-serif text-3xl font-medium tracking-tight sm:text-4xl">
-        {greetingFor(profile.companyName)}
+        {greetingFor(profile.companyName, new Date(), profile.firstName)}
       </h1>
       <p className="mt-2 max-w-2xl text-sm leading-6 text-muted">
         A quiet place to see what Delaware, the IRS, and India may expect
         next. Nothing here files anything for you.
       </p>
 
+      <div className="mt-8 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <Stat
+          label="Next deadline"
+          value="—"
+          hint="Appears when the calendar has dates"
+        />
+        <Stat
+          label="Overdue"
+          value="—"
+          hint="Filings past their due date"
+        />
+        <Stat
+          label="Done this quarter"
+          value="—"
+          hint="Marked complete in this quarter"
+        />
+        <Stat
+          label="Est. annual cost"
+          value={estimate ? formatUsd(estimate.filingTotal) : "—"}
+          hint={
+            estimate
+              ? "Delaware franchise tax and annual report"
+              : "Add share data to estimate"
+          }
+        />
+      </div>
+
       <div className="mt-8 grid gap-4 md:grid-cols-2">
         <Card>
-          <div className="mb-3 flex items-center justify-between gap-2">
-            <h2 className="font-serif text-xl font-medium">Next deadlines</h2>
-            <Badge>Coming next</Badge>
-          </div>
+          <h2 className="mb-3 font-serif text-xl font-medium">Next deadlines</h2>
           <EmptyState
-            title="The calendar is not wired yet"
-            body="Phase B will list the next filings for this company. Until then, nothing is overdue on this desk."
-            action={
-              <Link
-                href="/calendar"
-                className="text-sm font-medium text-accent underline underline-offset-4"
-              >
-                Open Calendar
-              </Link>
-            }
+            title="No upcoming dates yet"
+            body={`Your deadlines will appear here once the calendar is set up for ${profile.companyName}.`}
+            action={<LinkButton href="/calendar">Open Calendar</LinkButton>}
           />
         </Card>
 
         <Card>
-          <div className="mb-3 flex items-center justify-between gap-2">
-            <h2 className="font-serif text-xl font-medium">Action items</h2>
-            <Badge>Coming next</Badge>
-          </div>
+          <h2 className="mb-3 font-serif text-xl font-medium">Action items</h2>
           <EmptyState
-            title="No actions yet"
-            body="Inbox documents and marked filings will land here. You are not missing a hidden list."
-            action={
-              <Link
-                href="/inbox"
-                className="text-sm font-medium text-accent underline underline-offset-4"
-              >
-                Open Inbox
-              </Link>
-            }
+            title="You're clear"
+            body="Nothing needs your attention right now."
+            action={<LinkButton href="/inbox">Open Inbox</LinkButton>}
           />
         </Card>
 
@@ -84,45 +91,31 @@ export function DashboardHome() {
                 value={formatUsd(estimate.filingTotal)}
                 hint={`${formatUsd(estimate.tax)} tax and ${formatUsd(estimate.annualReportFee)} report fee. Other costs are not estimated yet.`}
               />
-              <Link
-                href="/tools/franchise-tax"
-                className="inline-flex h-11 items-center self-start rounded-md border border-line bg-card px-4 text-sm font-medium"
-              >
+              <LinkButton href="/tools/franchise-tax">
                 Review the calculation
-              </Link>
+              </LinkButton>
             </div>
           ) : (
             <EmptyState
               title="No share data yet"
-              body="Add authorized shares, issued shares, and assets to estimate the Delaware franchise tax. Other annual costs will stay user-editable later."
+              body="Add authorized shares, issued shares, and assets to estimate the Delaware franchise tax."
               action={
-                <Link
-                  href="/tools/franchise-tax"
-                  className="text-sm font-medium text-accent underline underline-offset-4"
-                >
+                <LinkButton href="/tools/franchise-tax">
                   Open Franchise Tax Checker
-                </Link>
+                </LinkButton>
               }
             />
           )}
         </Card>
 
         <Card>
-          <div className="mb-3 flex items-center justify-between gap-2">
-            <h2 className="font-serif text-xl font-medium">Recent documents</h2>
-            <Badge>Coming next</Badge>
-          </div>
+          <h2 className="mb-3 font-serif text-xl font-medium">
+            Recent documents
+          </h2>
           <EmptyState
-            title="The inbox is empty"
-            body="Paste a notice in Phase C and it will show up here after you review it. Nothing has been uploaded."
-            action={
-              <Link
-                href="/inbox"
-                className="text-sm font-medium text-accent underline underline-offset-4"
-              >
-                Open Inbox
-              </Link>
-            }
+            title="Inbox is empty"
+            body="No documents yet. Paste a notice or certificate in the Inbox and it will show up here after you review it."
+            action={<LinkButton href="/inbox">Open Inbox</LinkButton>}
           />
         </Card>
       </div>

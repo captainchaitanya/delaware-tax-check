@@ -11,12 +11,13 @@ export type NavItem = {
   href: string;
   label: string;
   icon: ComponentType;
+  badge?: string;
 };
 
 export const NAV_ITEMS: NavItem[] = [
   { href: "/", label: "Dashboard", icon: IconHome },
   { href: "/calendar", label: "Calendar", icon: IconCalendar },
-  { href: "/inbox", label: "Inbox", icon: IconInbox },
+  { href: "/inbox", label: "Inbox", icon: IconInbox, badge: "Soon" },
   { href: "/tools", label: "Tools", icon: IconTools },
   { href: "/settings", label: "Settings", icon: IconSettings },
 ];

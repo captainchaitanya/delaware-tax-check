@@ -7,6 +7,11 @@ import {
 } from "./profile";
 
 describe("companyProfileSchema", () => {
+  it("accepts a profile saved before firstName existed", () => {
+    const { firstName: _firstName, ...legacy } = SAMPLE_PROFILE;
+    expect(companyProfileSchema.parse(legacy).firstName).toBeUndefined();
+  });
+
   it("accepts the fictional sample profile", () => {
     expect(companyProfileSchema.parse(SAMPLE_PROFILE).companyName).toBe(
       "Northbridge Labs, Inc.",

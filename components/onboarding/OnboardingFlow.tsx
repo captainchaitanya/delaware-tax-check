@@ -172,6 +172,16 @@ function CompanyStep({
   return (
     <>
       <TextInput
+        id="first-name"
+        label="Your first name"
+        value={draft.firstName ?? ""}
+        onChange={(event) =>
+          setDraft({ ...draft, firstName: event.target.value })
+        }
+        placeholder="Anika"
+        hint="Optional. Used in the dashboard greeting."
+      />
+      <TextInput
         id="company-name"
         label="Company name"
         value={draft.companyName}

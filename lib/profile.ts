@@ -35,6 +35,7 @@ export const indiaDetailsSchema = z.object({
 
 export const companyProfileSchema = z
   .object({
+    firstName: z.string().trim().optional(),
     companyName: z.string().trim().min(1, "Enter the company name"),
     usEntity: usEntitySchema,
     usTaxYearEnd: taxYearEndSchema,
@@ -83,6 +84,7 @@ export function emptyShareClass(id: string, name = ""): ClassForm {
 
 export function createDraftProfile(): Omit<CompanyProfile, "completedAt"> {
   return {
+    firstName: "",
     companyName: "",
     usEntity: "delaware-c-corp",
     usTaxYearEnd: { ...DEFAULT_TAX_YEAR_END },
@@ -105,6 +107,7 @@ export function isValidMonthDay(month: number, day: number): boolean {
 }
 
 export const SAMPLE_PROFILE: CompanyProfile = {
+  firstName: "Anika",
   companyName: "Northbridge Labs, Inc.",
   usEntity: "delaware-c-corp",
   usTaxYearEnd: { month: 12, day: 31 },

@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { useAppState } from "@/components/app/AppState";
@@ -58,7 +57,7 @@ export function SettingsPanel() {
   }
 
   return (
-    <main className="mx-auto w-full max-w-2xl px-4 py-8 pb-24 lg:py-10">
+    <main className="mx-auto w-full max-w-2xl px-4 py-8 lg:py-10">
       <h1 className="font-serif text-3xl font-medium tracking-tight">
         Settings
       </h1>
@@ -72,7 +71,8 @@ export function SettingsPanel() {
           <h2 className="font-serif text-xl font-medium">Company profile</h2>
           {profile ? (
             <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
-              <Item label="Name" value={profile.companyName} />
+              <Item label="Your first name" value={profile.firstName?.trim() || "—"} />
+              <Item label="Company" value={profile.companyName} />
               <Item label="US entity" value="Delaware C-corp" />
               <Item
                 label="US tax year end"
@@ -170,13 +170,6 @@ export function SettingsPanel() {
           </div>
         </Card>
 
-        <p className="text-xs text-muted">
-          <Link href="/tools/franchise-tax" className="underline underline-offset-2">
-            Franchise Tax Checker
-          </Link>
-          {" · "}
-          Educational tool, not tax or legal advice.
-        </p>
       </div>
 
       <Dialog
