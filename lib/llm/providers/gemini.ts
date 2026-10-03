@@ -27,7 +27,16 @@ function textFromResponse(response: {
     .trim();
 }
 
-export async function extractWithGemini(text: string): Promise<unknown> {
+export function resolveGeminiModel(
+  env: Record<string, string | undefined> = process.env,
+): string {
+  return env.GEMINI_MODEL?.trim() || "gemini-3.8-flash";
+}
+
+export async function extractWithGemini(
+  text: string,
+  model = resolveGeminiModel(),
+): Promise<unknown> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
     logExtractDebug({
@@ -39,7 +48,7 @@ export async function extractWithGemini(text: string): Promise<unknown> {
   try {
     const ai = new GoogleGenAI({ apiKey });
     const response = await ai.models.generateContent({
-      model: process.env.GEMINI_MODEL?.trim() || "gemini-3.8-flash",
+      model,
       contents: buildExtractUserPrompt(text),
       config: {
         systemInstruction: EXTRACT_SYSTEM_PROMPT,

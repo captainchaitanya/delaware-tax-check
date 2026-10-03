@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  BUSY_MESSAGE,
   CONFIG_MESSAGE,
   INVALID_FORMAT_MESSAGE,
   QUOTA_EXHAUSTED_MESSAGE,
@@ -7,12 +8,34 @@ import {
 import { extractDocument } from "./extract";
 import { MAX_DOCUMENT_CHARS } from "./schema";
 import { SAMPLE_DOCUMENTS } from "./samples";
+import type { ExtractionResult } from "./schema";
 
 const mockEnv = { LLM_PROVIDER: "mock" };
 const liveEnv = { LLM_PROVIDER: "gemini", GEMINI_API_KEY: "test-key" };
 const PASTED_NOTICE = `Registered-agent reminder: this Delaware franchise tax
 notice is about authorized shares and the annual report. Please review
 the enclosed statement and file before the date shown on your account.`;
+
+const VALID_RESULT: ExtractionResult = {
+  relevant: true,
+  documentType: "delaware_franchise_tax_notice",
+  issuer: "Delaware Division of Corporations",
+  summary: "A franchise tax reminder for the annual report.",
+  fields: [
+    {
+      key: "company",
+      label: "Company",
+      value: "Cedar Peak",
+      quote: "Cedar Peak",
+      confidence: "high",
+    },
+  ],
+  shareClasses: [],
+  deadline: null,
+  requiredAction: "Review and file if needed.",
+};
+
+const noSleep = async () => undefined;
 
 describe("extractDocument", () => {
   it("returns canned results for each sample in mock mode", async () => {
@@ -124,5 +147,75 @@ describe("extractDocument", () => {
       expect(outcome.code).toBe("invalid");
       expect(outcome.error).toBe(INVALID_FORMAT_MESSAGE);
     }
+  });
+
+  it("retries a 503 once and then succeeds", async () => {
+    const callProvider = vi.fn(async () => {
+      if (callProvider.mock.calls.length === 1) {
+        throw Object.assign(new Error("UNAVAILABLE"), { status: 503 });
+      }
+      return VALID_RESULT;
+    });
+    const outcome = await extractDocument(PASTED_NOTICE, liveEnv, {
+      callProvider,
+      sleep: noSleep,
+    });
+    expect(outcome.ok).toBe(true);
+    expect(callProvider).toHaveBeenCalledTimes(2);
+  });
+
+  it("tries the fallback model after three 503s", async () => {
+    const callProvider = vi.fn(async (_id, _text, options) => {
+      if (options?.model === "gemini-2.0-flash") {
+        return VALID_RESULT;
+      }
+      throw Object.assign(new Error("UNAVAILABLE"), { status: 503 });
+    });
+    const outcome = await extractDocument(
+      PASTED_NOTICE,
+      { ...liveEnv, GEMINI_FALLBACK_MODEL: "gemini-2.0-flash" },
+      { callProvider, sleep: noSleep },
+    );
+    expect(outcome.ok).toBe(true);
+    expect(callProvider).toHaveBeenCalledTimes(4);
+    expect(callProvider.mock.calls[3]?.[2]).toEqual({
+      model: "gemini-2.0-flash",
+    });
+  });
+
+  it("returns the busy message when retries and fallback fail", async () => {
+    const callProvider = vi.fn(async () => {
+      throw Object.assign(new Error("UNAVAILABLE"), { status: 503 });
+    });
+    const outcome = await extractDocument(
+      PASTED_NOTICE,
+      { ...liveEnv, GEMINI_FALLBACK_MODEL: "gemini-2.0-flash" },
+      { callProvider, sleep: noSleep },
+    );
+    expect(outcome.ok).toBe(false);
+    if (!outcome.ok) {
+      expect(outcome.code).toBe("busy");
+      expect(outcome.error).toBe(BUSY_MESSAGE);
+    }
+    expect(callProvider).toHaveBeenCalledTimes(4);
+  });
+
+  it("does not retry a 404", async () => {
+    const callProvider = vi.fn(async () => {
+      throw Object.assign(
+        new Error("This model models/gemini-2.5-flash is no longer available"),
+        { status: 404 },
+      );
+    });
+    const outcome = await extractDocument(PASTED_NOTICE, liveEnv, {
+      callProvider,
+      sleep: noSleep,
+    });
+    expect(outcome.ok).toBe(false);
+    if (!outcome.ok) {
+      expect(outcome.code).toBe("config");
+      expect(outcome.error).toBe(CONFIG_MESSAGE);
+    }
+    expect(callProvider).toHaveBeenCalledTimes(1);
   });
 });

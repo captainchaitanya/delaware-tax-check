@@ -58,10 +58,43 @@ function printError(error: unknown) {
   );
 }
 
+const FALLBACK_CANDIDATES = [
+  "gemini-3.5-flash-lite",
+  "gemini-flash-lite-latest",
+  "gemini-flash-latest",
+  "gemini-2.0-flash",
+  "gemini-2.0-flash-lite",
+  "gemini-2.5-flash-lite",
+];
+
+async function probeModels(apiKey: string, primary: string) {
+  const ai = new GoogleGenAI({ apiKey });
+  const candidates = FALLBACK_CANDIDATES.filter((name) => name !== primary);
+  console.log(`probing fallback candidates (primary=${primary})`);
+  for (const model of candidates) {
+    try {
+      const response = await ai.models.generateContent({
+        model,
+        contents: "Reply with the single word ok.",
+      });
+      const text = response.text?.trim() ?? "";
+      console.log(`OK ${model} (${text.length} chars)`);
+    } catch (error) {
+      const status =
+        typeof error === "object" && error !== null && "status" in error
+          ? Number((error as { status: unknown }).status)
+          : null;
+      const message = error instanceof Error ? error.message : String(error);
+      console.log(`FAIL ${model} status=${status} ${message.slice(0, 160)}`);
+    }
+  }
+}
+
 async function main() {
   loadEnvLocal();
   const resolution = resolveProvider();
   const model = process.env.GEMINI_MODEL?.trim() || "gemini-3.8-flash";
+  const probe = process.argv.includes("--probe");
   console.log(
     `provider=${resolution.id} requested=${resolution.requested} model=${model}`,
   );
@@ -71,6 +104,10 @@ async function main() {
       const apiKey = process.env.GEMINI_API_KEY;
       if (!apiKey) {
         throw new Error("GEMINI_API_KEY is not set");
+      }
+      if (probe) {
+        await probeModels(apiKey, model);
+        return;
       }
       const ai = new GoogleGenAI({ apiKey });
       const response = await ai.models.generateContent({

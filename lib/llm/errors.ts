@@ -6,6 +6,9 @@ export const CONFIG_MESSAGE = "AI isn't configured correctly";
 export const INVALID_FORMAT_MESSAGE =
   "The AI's answer didn't match the expected format. Try again or edit the text.";
 
+export const BUSY_MESSAGE =
+  "The AI service is busy right now. Try again in a minute, or try a sample document below.";
+
 export type ExtractErrorCode =
   | "empty"
   | "too_long"
@@ -13,6 +16,7 @@ export type ExtractErrorCode =
   | "invalid"
   | "quota"
   | "config"
+  | "busy"
   | "provider";
 
 export class ExtractError extends Error {
@@ -69,7 +73,38 @@ export function messageForExtractError(error: unknown): {
   };
 }
 
+export function isTransientError(error: unknown): boolean {
+  if (error instanceof ExtractError) {
+    return error.code === "busy";
+  }
+  const status = statusFromError(error);
+  if (
+    status === 400 ||
+    status === 401 ||
+    status === 403 ||
+    status === 404 ||
+    status === 429
+  ) {
+    return false;
+  }
+  const message = error instanceof Error ? error.message : String(error ?? "");
+  if (/429|quota|resource exhausted|rate limit/i.test(message)) {
+    return false;
+  }
+  return (
+    status === 503 ||
+    status === 502 ||
+    status === 504 ||
+    /UNAVAILABLE|ETIMEDOUT|ECONNRESET|ENOTFOUND|ECONNREFUSED|timeout|timed out|network|fetch failed|socket hang up/i.test(
+      message,
+    )
+  );
+}
+
 export function providerErrorToExtractError(error: unknown): ExtractError {
+  if (error instanceof ExtractError) {
+    return error;
+  }
   const status = statusFromError(error);
   const message = error instanceof Error ? error.message : String(error ?? "");
   if (
@@ -88,6 +123,9 @@ export function providerErrorToExtractError(error: unknown): ExtractError {
     )
   ) {
     return new ExtractError("config", CONFIG_MESSAGE);
+  }
+  if (isTransientError(error)) {
+    return new ExtractError("busy", BUSY_MESSAGE);
   }
   return new ExtractError(
     "provider",

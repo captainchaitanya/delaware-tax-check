@@ -234,10 +234,19 @@ export function InboxApp() {
         <p className="mt-1 text-xs tabular-nums text-muted">
           {text.length.toLocaleString()} / {MAX_DOCUMENT_CHARS.toLocaleString()}
         </p>
-        <div className="mt-4">
+        <div className="mt-4 flex flex-wrap gap-2">
           <Button onClick={() => void readDocument()} disabled={busy}>
             {busy ? "Reading…" : "Read document"}
           </Button>
+          {error ? (
+            <Button
+              variant="secondary"
+              onClick={() => void readDocument(text)}
+              disabled={busy || text.trim() === ""}
+            >
+              Try again
+            </Button>
+          ) : null}
         </div>
       </Card>
 

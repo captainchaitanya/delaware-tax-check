@@ -84,6 +84,8 @@ export async function POST(request: Request) {
       ? 400
       : outcome.code === "quota"
         ? 429
-        : 502;
+        : outcome.code === "busy"
+          ? 503
+          : 502;
   return Response.json(outcome, { status });
 }

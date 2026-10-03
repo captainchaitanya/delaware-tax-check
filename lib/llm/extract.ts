@@ -1,12 +1,17 @@
 import {
+  BUSY_MESSAGE,
   ExtractError,
   INVALID_FORMAT_MESSAGE,
+  isTransientError,
   logExtractDebug,
   providerErrorToExtractError,
 } from "./errors";
 import type { ExtractOutcome, ExtractSuccess } from "./outcome";
 import { extractWithAnthropic } from "./providers/anthropic";
-import { extractWithGemini } from "./providers/gemini";
+import {
+  extractWithGemini,
+  resolveGeminiModel,
+} from "./providers/gemini";
 import { extractWithMock } from "./providers/mock";
 import { matchSampleDocument } from "./samples";
 import {
@@ -24,19 +29,34 @@ import {
 
 export type { ExtractOutcome } from "./outcome";
 
+export const RETRY_BACKOFF_MS = [1000, 3000] as const;
+
+export type CallProviderOptions = {
+  model?: string;
+};
+
 export type ExtractDeps = {
   callProvider?: (
     id: LlmProviderId,
     text: string,
+    options?: CallProviderOptions,
   ) => Promise<unknown>;
+  sleep?: (ms: number) => Promise<void>;
 };
+
+async function defaultSleep(ms: number): Promise<void> {
+  await new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
 
 async function callProvider(
   id: LlmProviderId,
   text: string,
+  options?: CallProviderOptions,
 ): Promise<unknown> {
   if (id === "gemini") {
-    return extractWithGemini(text);
+    return extractWithGemini(text, options?.model);
   }
   if (id === "anthropic") {
     return extractWithAnthropic(text);
@@ -96,13 +116,82 @@ function success(
   };
 }
 
+function mapOrKeep(error: unknown): ExtractError {
+  return error instanceof ExtractError
+    ? error
+    : providerErrorToExtractError(error);
+}
+
 async function extractOnce(
   text: string,
   resolution: ProviderResolution,
   live: ExtractDeps["callProvider"],
+  model?: string,
 ): Promise<ExtractionResult> {
-  const raw = await (live ?? callProvider)(resolution.id, text);
+  const raw = await (live ?? callProvider)(resolution.id, text, { model });
   return parseResult(raw);
+}
+
+async function extractWithResilience(
+  text: string,
+  resolution: ProviderResolution,
+  env: EnvLike,
+  deps: ExtractDeps,
+): Promise<ExtractionResult> {
+  const sleep = deps.sleep ?? defaultSleep;
+  const primary =
+    resolution.id === "gemini" ? resolveGeminiModel(env) : undefined;
+  let lastError: unknown;
+
+  for (let attempt = 0; attempt <= RETRY_BACKOFF_MS.length; attempt += 1) {
+    try {
+      return await extractOnce(text, resolution, deps.callProvider, primary);
+    } catch (error) {
+      lastError = error;
+      const mapped = mapOrKeep(error);
+      if (
+        mapped.code === "invalid" ||
+        mapped.code === "quota" ||
+        mapped.code === "config" ||
+        mapped.code === "empty" ||
+        mapped.code === "too_long" ||
+        mapped.code === "irrelevant"
+      ) {
+        throw mapped;
+      }
+      if (!isTransientError(error) && !isTransientError(mapped)) {
+        throw mapped;
+      }
+      if (attempt < RETRY_BACKOFF_MS.length) {
+        await sleep(RETRY_BACKOFF_MS[attempt]!);
+      }
+    }
+  }
+
+  const fallback = env.GEMINI_FALLBACK_MODEL?.trim();
+  if (
+    fallback &&
+    fallback !== primary &&
+    resolution.id === "gemini"
+  ) {
+    try {
+      return await extractOnce(text, resolution, deps.callProvider, fallback);
+    } catch (error) {
+      lastError = error;
+      const mapped = mapOrKeep(error);
+      if (
+        mapped.code === "invalid" ||
+        mapped.code === "quota" ||
+        mapped.code === "config"
+      ) {
+        throw mapped;
+      }
+    }
+  }
+
+  throw lastError instanceof ExtractError && lastError.code === "busy"
+    ? lastError
+    : new ExtractError("busy", BUSY_MESSAGE);
 }
 
 export async function extractDocument(
@@ -121,19 +210,13 @@ export async function extractDocument(
         sampleResult: true,
       });
     }
-    try {
-      const result = await extractOnce(trimmed, resolution, deps.callProvider);
-      return success(result, resolution, { sampleResult: false });
-    } catch (error) {
-      if (error instanceof ExtractError && error.code !== "invalid") {
-        throw error;
-      }
-      if (!(error instanceof ExtractError) && !(error instanceof SyntaxError)) {
-        throw error;
-      }
-      const retry = await extractOnce(trimmed, resolution, deps.callProvider);
-      return success(retry, resolution, { sampleResult: false });
-    }
+    const result = await extractWithResilience(
+      trimmed,
+      resolution,
+      env,
+      deps,
+    );
+    return success(result, resolution, { sampleResult: false });
   } catch (error) {
     if (error instanceof ExtractError) {
       return {
