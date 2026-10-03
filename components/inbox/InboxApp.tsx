@@ -79,7 +79,9 @@ export function InboxApp() {
         body: JSON.stringify({ text: source }),
       });
       const payload = (await response.json()) as ExtractOutcome;
-      setDemoMode(payload.demoMode);
+      if (!(payload.ok && payload.sampleResult)) {
+        setDemoMode(payload.demoMode);
+      }
       if (!payload.ok) {
         setError(payload.error);
         return;
@@ -91,6 +93,7 @@ export function InboxApp() {
         rawText: source,
         extraction: payload.result,
         demoMode: payload.demoMode,
+        sampleResult: payload.sampleResult,
         provider: payload.provider,
         deadlineId: null,
         shareDataSent: false,
@@ -189,6 +192,7 @@ export function InboxApp() {
       <ReviewScreen
         review={review}
         demoMode={review.document.demoMode || demoMode}
+        sampleResult={review.document.sampleResult}
         onChange={setReview}
         onBack={() => setReview(null)}
         onSave={() => saveReview("needs_review")}
@@ -237,7 +241,8 @@ export function InboxApp() {
       <section className="mt-8">
         <h2 className="font-serif text-xl font-medium">Try a sample document</h2>
         <p className="mt-1 text-sm text-muted">
-          Fictional notices so you can walk the full review flow without a key.
+          Fictional notices. These use a saved sample result and do not call the
+          live AI.
         </p>
         <div className="mt-3 grid gap-2 sm:grid-cols-2">
           {SAMPLE_DOCUMENTS.map((sample) => (
@@ -293,6 +298,11 @@ export function InboxApp() {
                         ? "Needs review"
                         : "Done"}
                     </Badge>
+                    {document.sampleResult ? (
+                      <Badge>Sample result</Badge>
+                    ) : document.demoMode ? (
+                      <Badge>Demo mode</Badge>
+                    ) : null}
                     {document.extraction.deadline ? (
                       <span className="font-mono text-xs tabular-nums text-muted">
                         {document.extraction.deadline.isoDate}
@@ -312,6 +322,7 @@ export function InboxApp() {
 function ReviewScreen({
   review,
   demoMode,
+  sampleResult,
   onChange,
   onBack,
   onSave,
@@ -321,6 +332,7 @@ function ReviewScreen({
 }: {
   review: ReviewDraft;
   demoMode: boolean;
+  sampleResult: boolean;
   onChange: (next: ReviewDraft) => void;
   onBack: () => void;
   onSave: () => void;
@@ -342,7 +354,11 @@ function ReviewScreen({
           </h1>
         </div>
         <div className="flex flex-wrap gap-2">
-          {demoMode ? <Badge>Demo mode</Badge> : null}
+          {sampleResult ? (
+            <Badge>Sample result</Badge>
+          ) : demoMode ? (
+            <Badge>Demo mode</Badge>
+          ) : null}
           <Badge
             tone={
               review.document.status === "needs_review" ? "warn" : "neutral"

@@ -1,3 +1,6 @@
+export const QUOTA_EXHAUSTED_MESSAGE =
+  "The free AI quota for today is used up. Try a sample document, or come back tomorrow.";
+
 export type ExtractErrorCode =
   | "empty"
   | "too_long"
@@ -39,10 +42,7 @@ export function providerErrorToExtractError(error: unknown): ExtractError {
     status === 429 ||
     /429|quota|resource exhausted|rate limit/i.test(message)
   ) {
-    return new ExtractError(
-      "quota",
-      "The model is temporarily busy. Try again in a minute.",
-    );
+    return new ExtractError("quota", QUOTA_EXHAUSTED_MESSAGE);
   }
   return new ExtractError(
     "provider",

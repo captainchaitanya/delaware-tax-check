@@ -26,6 +26,7 @@ export type InboxDocument = {
   rawText: string;
   extraction: ExtractionResult;
   demoMode: boolean;
+  sampleResult: boolean;
   provider: LlmProviderId;
   deadlineId: string | null;
   shareDataSent: boolean;
@@ -59,6 +60,7 @@ const inboxDocumentSchema = z.object({
   rawText: z.string(),
   extraction: extractionResultSchema,
   demoMode: z.boolean(),
+  sampleResult: z.boolean().default(false),
   provider: z.enum(["gemini", "anthropic", "mock"]),
   deadlineId: z.string().nullable(),
   shareDataSent: z.boolean(),

@@ -1,9 +1,14 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import { QUOTA_EXHAUSTED_MESSAGE } from "./errors";
 import { extractDocument } from "./extract";
 import { MAX_DOCUMENT_CHARS } from "./schema";
 import { SAMPLE_DOCUMENTS } from "./samples";
 
 const mockEnv = { LLM_PROVIDER: "mock" };
+const liveEnv = { LLM_PROVIDER: "gemini", GEMINI_API_KEY: "test-key" };
+const PASTED_NOTICE = `Registered-agent reminder: this Delaware franchise tax
+notice is about authorized shares and the annual report. Please review
+the enclosed statement and file before the date shown on your account.`;
 
 describe("extractDocument", () => {
   it("returns canned results for each sample in mock mode", async () => {
@@ -12,6 +17,7 @@ describe("extractDocument", () => {
       expect(outcome.ok).toBe(true);
       if (outcome.ok) {
         expect(outcome.demoMode).toBe(true);
+        expect(outcome.sampleResult).toBe(true);
         expect(outcome.provider).toBe("mock");
         expect(outcome.result.documentType).toBe(sample.result.documentType);
         expect(outcome.result.deadline?.isoDate).toBe(
@@ -52,6 +58,40 @@ describe("extractDocument", () => {
     if (outcome.ok) {
       expect(outcome.provider).toBe("mock");
       expect(outcome.demoMode).toBe(true);
+      expect(outcome.sampleResult).toBe(true);
+    }
+  });
+
+  it("never calls the live provider for a built-in sample document", async () => {
+    const callProvider = vi.fn(async () => {
+      throw new Error("live provider should not run for samples");
+    });
+    for (const sample of SAMPLE_DOCUMENTS) {
+      const outcome = await extractDocument(sample.text, liveEnv, {
+        callProvider,
+      });
+      expect(outcome.ok).toBe(true);
+      if (outcome.ok) {
+        expect(outcome.sampleResult).toBe(true);
+        expect(outcome.provider).toBe("mock");
+        expect(outcome.result.documentType).toBe(sample.result.documentType);
+      }
+    }
+    expect(callProvider).not.toHaveBeenCalled();
+  });
+
+  it("maps a 429 quota error to the friendly message", async () => {
+    const outcome = await extractDocument(PASTED_NOTICE, liveEnv, {
+      callProvider: async () => {
+        throw Object.assign(new Error("RESOURCE_EXHAUSTED quota exceeded"), {
+          status: 429,
+        });
+      },
+    });
+    expect(outcome.ok).toBe(false);
+    if (!outcome.ok) {
+      expect(outcome.code).toBe("quota");
+      expect(outcome.error).toBe(QUOTA_EXHAUSTED_MESSAGE);
     }
   });
 });

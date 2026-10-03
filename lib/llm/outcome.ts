@@ -8,6 +8,7 @@ export type ExtractSuccess = {
   provider: LlmProviderId;
   requestedProvider: LlmProviderId;
   demoMode: boolean;
+  sampleResult: boolean;
 };
 
 export type ExtractFailure = {

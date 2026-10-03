@@ -1,8 +1,9 @@
 import { ExtractError, providerErrorToExtractError } from "./errors";
-import type { ExtractOutcome } from "./outcome";
+import type { ExtractOutcome, ExtractSuccess } from "./outcome";
 import { extractWithAnthropic } from "./providers/anthropic";
 import { extractWithGemini } from "./providers/gemini";
 import { extractWithMock } from "./providers/mock";
+import { matchSampleDocument } from "./samples";
 import {
   clipExtraction,
   extractionResultSchema,
@@ -17,6 +18,13 @@ import {
 } from "./selectProvider";
 
 export type { ExtractOutcome } from "./outcome";
+
+export type ExtractDeps = {
+  callProvider?: (
+    id: LlmProviderId,
+    text: string,
+  ) => Promise<unknown>;
+};
 
 async function callProvider(
   id: LlmProviderId,
@@ -63,42 +71,55 @@ function validateInput(text: string): string {
   return trimmed;
 }
 
+function success(
+  result: ExtractionResult,
+  resolution: ProviderResolution,
+  extra: { provider?: LlmProviderId; demoMode?: boolean; sampleResult: boolean },
+): ExtractSuccess {
+  return {
+    ok: true,
+    result,
+    provider: extra.provider ?? resolution.id,
+    requestedProvider: resolution.requested,
+    demoMode: extra.demoMode ?? resolution.demoMode,
+    sampleResult: extra.sampleResult,
+  };
+}
+
 async function extractOnce(
   text: string,
   resolution: ProviderResolution,
+  live: ExtractDeps["callProvider"],
 ): Promise<ExtractionResult> {
-  const raw = await callProvider(resolution.id, text);
+  const raw = await (live ?? callProvider)(resolution.id, text);
   return parseResult(raw);
 }
 
 export async function extractDocument(
   text: string,
   env: EnvLike = process.env,
+  deps: ExtractDeps = {},
 ): Promise<ExtractOutcome> {
   const resolution = resolveProvider(env);
   try {
     const trimmed = validateInput(text);
+    const sample = matchSampleDocument(trimmed);
+    if (sample) {
+      return success(structuredClone(sample.result), resolution, {
+        provider: "mock",
+        demoMode: true,
+        sampleResult: true,
+      });
+    }
     try {
-      const result = await extractOnce(trimmed, resolution);
-      return {
-        ok: true,
-        result,
-        provider: resolution.id,
-        requestedProvider: resolution.requested,
-        demoMode: resolution.demoMode,
-      };
+      const result = await extractOnce(trimmed, resolution, deps.callProvider);
+      return success(result, resolution, { sampleResult: false });
     } catch (error) {
       if (error instanceof ExtractError && error.code !== "invalid") {
         throw error;
       }
-      const retry = await extractOnce(trimmed, resolution);
-      return {
-        ok: true,
-        result: retry,
-        provider: resolution.id,
-        requestedProvider: resolution.requested,
-        demoMode: resolution.demoMode,
-      };
+      const retry = await extractOnce(trimmed, resolution, deps.callProvider);
+      return success(retry, resolution, { sampleResult: false });
     }
   } catch (error) {
     if (error instanceof ExtractError) {
