@@ -32,7 +32,7 @@ export function deadlinesToIcs(
       `UID:${item.id}@founder-desk`,
       `DTSTART;VALUE=DATE:${icsDate(item.date)}`,
       `SUMMARY:${escapeText(item.title)}`,
-      `DESCRIPTION:${escapeText(`${item.whatThisIs} Source: ${item.sourceUrl}. Unverified candidate date.`)}`,
+      `DESCRIPTION:${escapeText(`${item.whatThisIs} Source: ${item.sources[0] ?? item.sourceUrl}. ${item.verificationStatus}.`)}`,
       `CATEGORIES:${item.jurisdiction}`,
       "END:VEVENT",
     );

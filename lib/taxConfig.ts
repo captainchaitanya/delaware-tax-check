@@ -1,17 +1,18 @@
 /**
  * Delaware franchise tax and annual report figures.
- * verify against corp.delaware.gov before publishing
- *
- * lastVerified: 2026-10-03
- *
- * Sources commonly cited for these figures are the Delaware Division of
- * Corporations franchise tax instructions. Recheck before any public launch.
+ * status: verified  lastChecked: 2026-10-03
+ * Sources: corp.delaware.gov/paytaxes/ and corp.delaware.gov/frtaxcalc/
  */
 
 export const TAX_CONFIG = {
-  lastVerified: "2026-10-03",
-  sourceUrl: "https://corp.delaware.gov",
-  verified: false,
+  lastChecked: "2026-10-03",
+  status: "verified" as const,
+  sources: [
+    "https://corp.delaware.gov/paytaxes/",
+    "https://corp.delaware.gov/frtaxcalc/",
+  ],
+  notes:
+    "Large Corporate Filers may have a $250,000 maximum. This checker still uses the $200,000 cap and does not compute the Large Corporate Filer amount.",
 
   authorizedShares: {
     /** 5,000 shares or fewer */
@@ -34,22 +35,23 @@ export const TAX_CONFIG = {
     maximumTaxDollars: 200_000,
   },
 
-  // verify against corp.delaware.gov before publishing
+  /** Note only — not used in the calculation. */
+  largeCorporateFilerMaximumTaxDollars: 250_000,
+
   annualReport: {
-    filingFeeDollars: 50, // verify
-    dueDate: "March 1", // verify
-    latePenaltyDollars: 200, // verify
-    monthlyInterestPercent: 1.5, // verify
+    filingFeeDollars: 50,
+    dueDate: "March 1",
+    latePenaltyDollars: 200,
+    monthlyInterestPercent: 1.5,
+    nonExemptNote: "Annual report fee is $50 for a non-exempt corporation.",
   },
 
-  // verify against corp.delaware.gov before publishing
   estimatedPayments: {
     /** Quarterly estimates required when tax owed is this amount or more */
-    thresholdDollars: 5_000, // verify
-    junePercent: 40, // verify — June 1
-    septemberPercent: 20, // verify — September 1
-    decemberPercent: 20, // verify — December 1
-    // remainder is due March 1
+    thresholdDollars: 5_000,
+    junePercent: 40,
+    septemberPercent: 20,
+    decemberPercent: 20,
     juneDue: "June 1",
     septemberDue: "September 1",
     decemberDue: "December 1",

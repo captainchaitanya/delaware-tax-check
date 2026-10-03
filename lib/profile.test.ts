@@ -3,6 +3,7 @@ import {
   SAMPLE_PROFILE,
   companyProfileSchema,
   createDraftProfile,
+  firstDir3DueYear,
   isValidMonthDay,
 } from "./profile";
 
@@ -44,6 +45,33 @@ describe("companyProfileSchema", () => {
         completedAt: "2026-10-03T00:00:00.000Z",
       }).success,
     ).toBe(true);
+  });
+
+  it("fills new verification fields on older saved profiles", () => {
+    const {
+      firstName: _firstName,
+      reportableRelatedPartyTransactions: _related,
+      ...legacy
+    } = SAMPLE_PROFILE;
+    const withoutNew = {
+      ...legacy,
+      india: {
+        financialYear: "apr-mar" as const,
+        gstRegistered: true,
+        receivesForeignInvestment: true,
+        directorCount: 2,
+      },
+    };
+    const parsed = companyProfileSchema.parse(withoutNew);
+    expect(parsed.reportableRelatedPartyTransactions).toBe(true);
+    expect(parsed.india?.transactsWithUsParent).toBe(true);
+    expect(parsed.india?.directorDinFyEnds).toEqual([]);
+  });
+
+  it("anchors DIR-3 to the year after the third FY", () => {
+    expect(firstDir3DueYear(2025)).toBe(2028);
+    expect(firstDir3DueYear(2026)).toBe(2029);
+    expect(firstDir3DueYear(2027)).toBe(2030);
   });
 
   it("validates month-end dates", () => {

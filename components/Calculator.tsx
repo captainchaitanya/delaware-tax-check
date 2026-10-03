@@ -150,12 +150,12 @@ export function Calculator({ initialForm }: CalculatorProps) {
 
       <p className="border-t border-line pt-6 text-xs leading-5 text-muted">
         Educational tool, not tax advice.{" "}
-        {TAX_CONFIG.verified
-          ? `Last verified ${TAX_CONFIG.lastVerified}.`
-          : `Unverified candidate figures, last noted ${TAX_CONFIG.lastVerified}.`}
-        Recheck{" "}
+        {TAX_CONFIG.status === "verified"
+          ? `Verified ${TAX_CONFIG.lastChecked}. `
+          : `Unverified candidate figures, last noted ${TAX_CONFIG.lastChecked}. `}
+        {TAX_CONFIG.notes} Recheck{" "}
         <a
-          href="https://corp.delaware.gov"
+          href={TAX_CONFIG.sources[0]}
           className="underline decoration-line underline-offset-2 hover:text-foreground"
         >
           corp.delaware.gov

@@ -4,7 +4,7 @@ import { useMemo } from "react";
 import { useAppState } from "@/components/app/AppState";
 import { MonthChart } from "@/components/dashboard/MonthChart";
 import { QuarterRing } from "@/components/dashboard/QuarterRing";
-import { UnverifiedBadge } from "@/components/ui/Badge";
+import { VerificationBadge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { TextInput } from "@/components/ui/Input";
@@ -110,7 +110,10 @@ export function DashboardHome() {
             <ul className="flex flex-col gap-3">
               {next.map((item) => (
                 <li key={item.id} className="flex justify-between gap-3 text-sm">
-                  <span>{item.title}</span>
+                  <span className="flex flex-col items-start gap-1">
+                    <span>{item.title}</span>
+                    <VerificationBadge status={item.verificationStatus} />
+                  </span>
                   <span className="font-mono tabular-nums text-muted">
                     {formatCivilDate(item.date)}
                   </span>
@@ -143,7 +146,10 @@ export function DashboardHome() {
                     key={item.id}
                     className="flex justify-between gap-3 text-sm"
                   >
-                    <span>{item.title}</span>
+                    <span className="flex flex-col items-start gap-1">
+                      <span>{item.title}</span>
+                      <VerificationBadge status={item.verificationStatus} />
+                    </span>
                     <span className="font-mono tabular-nums text-muted">
                       {formatCivilDate(item.date)}
                     </span>
@@ -176,7 +182,7 @@ export function DashboardHome() {
             <h2 className="font-serif text-xl font-medium">
               Estimated annual compliance cost
             </h2>
-            {TAX_CONFIG.verified ? null : <UnverifiedBadge />}
+            <VerificationBadge status={TAX_CONFIG.status} />
           </div>
           <div className="flex flex-col gap-4">
             <Stat

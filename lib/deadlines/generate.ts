@@ -1,5 +1,10 @@
 import { franchiseEstimateFromProfile } from "../franchiseEstimate";
-import type { CompanyProfile } from "../profile";
+import {
+  directorDinFyEndsFor,
+  firstDir3DueYear,
+  type CompanyProfile,
+} from "../profile";
+import type { VerificationStatus } from "../verification";
 import {
   addDays,
   addMonths,
@@ -35,8 +40,10 @@ export type GeneratedDeadline = {
   ifMissed: string;
   appliesLabel: string;
   sourceUrl: string;
-  verified: false;
-  lastVerified: null;
+  sources: string[];
+  verificationStatus: VerificationStatus;
+  lastChecked: string | null;
+  notes: string;
   status: DeadlineStatus;
   amountDollars: number | null;
   rollConvention: RollConvention;
@@ -129,12 +136,16 @@ function rawDatesForRule(
     case "monthsAfterFyEnd": {
       const ends =
         schedule.fy === "us" ? usFyEnds(profile, today) : indiaFyEnds(today);
-      return ends.map((end) =>
-        addMonths(
+      return ends.map((end) => {
+        const months =
+          schedule.june30Months && end.month === 6 && end.day === 30
+            ? schedule.june30Months
+            : schedule.months;
+        return addMonths(
           { year: end.year, month: end.month, day: schedule.day },
-          schedule.months,
-        ),
-      );
+          months,
+        );
+      });
     }
     case "daysAfterFyEnd": {
       const ends =
@@ -165,12 +176,29 @@ function rawDatesForRule(
       const bases = resolved.get(schedule.afterRuleId) ?? [];
       return bases.map((base) => addDays(base, schedule.days));
     }
-    case "perDirector": {
-      const count = profile.india?.directorCount ?? 1;
-      const years = [-1, 0, 1, 2].map((offset) =>
-        clampDay(today.year + offset, schedule.month, schedule.day),
+    case "dir3Kyc": {
+      if (!profile.india) {
+        return [];
+      }
+      const fyEnds = directorDinFyEndsFor(profile.india);
+      return fyEnds.flatMap((fyEndYear) => {
+        const first = firstDir3DueYear(fyEndYear);
+        const dates: CivilDate[] = [];
+        for (let year = first; year <= today.year + 3; year += 3) {
+          if (year >= today.year - 1) {
+            dates.push({ year, month: 6, day: 30 });
+          }
+        }
+        return dates;
+      });
+    }
+    case "indiaCompanyItr": {
+      const due = profile.india?.transactsWithUsParent
+        ? { month: 11, day: 30 }
+        : { month: 10, day: 31 };
+      return [-1, 0, 1, 2].map((offset) =>
+        clampDay(today.year + offset, due.month, due.day),
       );
-      return years.flatMap((date) => Array.from({ length: count }, () => date));
     }
     default:
       return [];
@@ -241,11 +269,25 @@ export function generateDeadlines(
     const statutory = rawDatesForRule(rule, profile, today, statutoryByRule);
     statutoryByRule.set(rule.id, statutory);
 
-    if (rule.schedule.kind === "perDirector") {
-      const count = profile.india?.directorCount ?? 1;
-      statutory.forEach((date, index) => {
-        const director = (index % count) + 1;
-        pushItem(rule, date, `${rule.id}:${toIsoDate(date)}:d${director}`, `${rule.title} — Director ${director}`);
+    if (rule.schedule.kind === "dir3Kyc") {
+      if (!profile.india) {
+        return;
+      }
+      directorDinFyEndsFor(profile.india).forEach((fyEndYear, index) => {
+        const first = firstDir3DueYear(fyEndYear);
+        for (let year = first; year <= today.year + 3; year += 3) {
+          if (year < today.year - 1) {
+            continue;
+          }
+          const date = { year, month: 6, day: 30 };
+          const director = index + 1;
+          pushItem(
+            rule,
+            date,
+            `${rule.id}:${toIsoDate(date)}:d${director}`,
+            `${rule.title} — Director ${director}`,
+          );
+        }
       });
       return;
     }
@@ -285,9 +327,11 @@ export function generateDeadlines(
       whatThisIs: rule.whatThisIs,
       ifMissed: rule.ifMissed,
       appliesLabel: rule.appliesLabel,
-      sourceUrl: rule.sourceUrl,
-      verified: false,
-      lastVerified: null,
+      sourceUrl: rule.sources[0] ?? "",
+      sources: rule.sources,
+      verificationStatus: rule.status,
+      lastChecked: rule.lastChecked,
+      notes: rule.notes,
       status: statusFor(date, today),
       amountDollars: amountFor(rule, estimate),
       rollConvention: rule.rollConvention,
@@ -333,8 +377,10 @@ export function customToGenerated(
     appliesLabel:
       custom.source === "document" ? "From your document" : "Added by you",
     sourceUrl: "",
-    verified: false,
-    lastVerified: null,
+    sources: [],
+    verificationStatus: "unverified",
+    lastChecked: null,
+    notes: "",
     status: statusFor(date, today),
     amountDollars: null,
     rollConvention: "none",

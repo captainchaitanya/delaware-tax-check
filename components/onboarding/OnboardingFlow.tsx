@@ -17,6 +17,8 @@ import type { CalculatorForm } from "@/lib/formTypes";
 import {
   companyProfileSchema,
   createDraftProfile,
+  DEFAULT_DIN_FY_END,
+  emptyIndiaDetails,
   emptyShareStructure,
   type CompanyProfile,
 } from "@/lib/profile";
@@ -261,13 +263,26 @@ function OwnershipStep({
   setDraft: (draft: Draft) => void;
 }) {
   return (
-    <YesNo
-      name="foreign-owned"
-      legend="Is the US company 25% or more foreign-owned?"
-      hint="Including ownership by Indian residents or an Indian company. This can trigger Form 5472."
-      value={draft.foreignOwned25}
-      onChange={(foreignOwned25) => setDraft({ ...draft, foreignOwned25 })}
-    />
+    <>
+      <YesNo
+        name="foreign-owned"
+        legend="Is the US company 25% or more foreign-owned?"
+        hint="Including ownership by Indian residents or an Indian company. This can trigger Form 5472."
+        value={draft.foreignOwned25}
+        onChange={(foreignOwned25) => setDraft({ ...draft, foreignOwned25 })}
+      />
+      {draft.foreignOwned25 ? (
+        <YesNo
+          name="related-party"
+          legend="Are there reportable transactions with a related party?"
+          hint="Form 5472 is due with the 1120 only when the company is 25%+ foreign-owned and has reportable related-party transactions."
+          value={draft.reportableRelatedPartyTransactions}
+          onChange={(reportableRelatedPartyTransactions) =>
+            setDraft({ ...draft, reportableRelatedPartyTransactions })
+          }
+        />
+      ) : null}
+    </>
   );
 }
 
@@ -289,12 +304,7 @@ function IndiaStep({
             ...draft,
             hasIndianSubsidiary,
             india: hasIndianSubsidiary
-              ? draft.india ?? {
-                  financialYear: "apr-mar",
-                  gstRegistered: false,
-                  receivesForeignInvestment: false,
-                  directorCount: 2,
-                }
+              ? draft.india ?? emptyIndiaDetails()
               : null,
           })
         }
@@ -326,21 +336,65 @@ function IndiaStep({
               })
             }
           />
+          <YesNo
+            name="tp-parent"
+            legend="Does the Indian subsidiary transact with the US parent (services, invoices, loans)?"
+            hint="Yes is the usual case. This can move the company ITR to 30 November and add Form 3CEB."
+            value={draft.india.transactsWithUsParent}
+            onChange={(transactsWithUsParent) =>
+              setDraft({
+                ...draft,
+                india: { ...draft.india!, transactsWithUsParent },
+              })
+            }
+          />
           <TextInput
             id="directors"
             label="Number of directors"
             inputMode="numeric"
             value={String(draft.india.directorCount)}
-            onChange={(event) =>
+            onChange={(event) => {
+              const directorCount = Number(event.target.value) || 0;
+              const directorDinFyEnds = Array.from(
+                { length: Math.max(directorCount, 0) },
+                (_, index) =>
+                  draft.india!.directorDinFyEnds[index] ?? DEFAULT_DIN_FY_END,
+              );
               setDraft({
                 ...draft,
-                india: {
-                  ...draft.india!,
-                  directorCount: Number(event.target.value) || 0,
-                },
-              })
-            }
+                india: { ...draft.india!, directorCount, directorDinFyEnds },
+              });
+            }}
           />
+          {Array.from({ length: draft.india.directorCount }, (_, index) => (
+            <SelectInput
+              key={`din-fy-${index}`}
+              id={`din-fy-${index}`}
+              label={`Director ${index + 1}: DIN allotted in FY`}
+              hint="Defaults to on or before 31 March 2025."
+              value={String(
+                draft.india!.directorDinFyEnds[index] ?? DEFAULT_DIN_FY_END,
+              )}
+              onChange={(event) => {
+                const directorDinFyEnds = Array.from(
+                  { length: draft.india!.directorCount },
+                  (_, item) =>
+                    draft.india!.directorDinFyEnds[item] ?? DEFAULT_DIN_FY_END,
+                );
+                directorDinFyEnds[index] = Number(event.target.value);
+                setDraft({
+                  ...draft,
+                  india: { ...draft.india!, directorDinFyEnds },
+                });
+              }}
+            >
+              <option value="2025">On or before 31 Mar 2025</option>
+              <option value="2026">FY 2025–26</option>
+              <option value="2027">FY 2026–27</option>
+              <option value="2028">FY 2027–28</option>
+              <option value="2029">FY 2028–29</option>
+            </SelectInput>
+          ))}
         </>
       ) : null}
     </>

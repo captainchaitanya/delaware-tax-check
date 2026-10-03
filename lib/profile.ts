@@ -26,11 +26,15 @@ export const shareStructureSchema = z.object({
   classes: z.array(shareClassFormSchema).min(1),
 });
 
+export const DEFAULT_DIN_FY_END = 2025;
+
 export const indiaDetailsSchema = z.object({
   financialYear: indiaFinancialYearSchema,
   gstRegistered: z.boolean(),
   receivesForeignInvestment: z.boolean(),
   directorCount: z.number().int().min(1, "Enter at least one director"),
+  transactsWithUsParent: z.boolean().default(true),
+  directorDinFyEnds: z.array(z.number().int().min(1990).max(2100)).default([]),
 });
 
 export const companyProfileSchema = z
@@ -40,6 +44,7 @@ export const companyProfileSchema = z
     usEntity: usEntitySchema,
     usTaxYearEnd: taxYearEndSchema,
     foreignOwned25: z.boolean(),
+    reportableRelatedPartyTransactions: z.boolean().default(true),
     hasIndianSubsidiary: z.boolean(),
     india: indiaDetailsSchema.nullable(),
     indianResidentFoundersHoldShares: z.boolean(),
@@ -89,6 +94,7 @@ export function createDraftProfile(): Omit<CompanyProfile, "completedAt"> {
     usEntity: "delaware-c-corp",
     usTaxYearEnd: { ...DEFAULT_TAX_YEAR_END },
     foreignOwned25: false,
+    reportableRelatedPartyTransactions: true,
     hasIndianSubsidiary: false,
     india: null,
     indianResidentFoundersHoldShares: false,
@@ -99,6 +105,28 @@ export function createDraftProfile(): Omit<CompanyProfile, "completedAt"> {
 
 export function parseCompanyProfile(value: unknown): CompanyProfile {
   return companyProfileSchema.parse(value);
+}
+
+export function emptyIndiaDetails(): IndiaDetails {
+  return {
+    financialYear: "apr-mar",
+    gstRegistered: false,
+    receivesForeignInvestment: false,
+    directorCount: 2,
+    transactsWithUsParent: true,
+    directorDinFyEnds: [DEFAULT_DIN_FY_END, DEFAULT_DIN_FY_END],
+  };
+}
+
+export function directorDinFyEndsFor(india: IndiaDetails): number[] {
+  return Array.from(
+    { length: india.directorCount },
+    (_, index) => india.directorDinFyEnds[index] ?? DEFAULT_DIN_FY_END,
+  );
+}
+
+export function firstDir3DueYear(allotmentFyEndYear: number): number {
+  return allotmentFyEndYear + 3;
 }
 
 export function isValidMonthDay(month: number, day: number): boolean {
@@ -112,12 +140,15 @@ export const SAMPLE_PROFILE: CompanyProfile = {
   usEntity: "delaware-c-corp",
   usTaxYearEnd: { month: 12, day: 31 },
   foreignOwned25: true,
+  reportableRelatedPartyTransactions: true,
   hasIndianSubsidiary: true,
   india: {
     financialYear: "apr-mar",
     gstRegistered: true,
     receivesForeignInvestment: true,
     directorCount: 2,
+    transactsWithUsParent: true,
+    directorDinFyEnds: [2025, 2025],
   },
   indianResidentFoundersHoldShares: true,
   paysUsContractors: false,

@@ -33,7 +33,7 @@ describe("generateDeadlines", () => {
     expect(items.some((item) => item.ruleId === "us-1120")).toBe(true);
   });
 
-  it("includes Form 5472 only when 25%+ foreign-owned", () => {
+  it("includes Form 5472 only when 25%+ foreign-owned with related-party transactions", () => {
     const owned = generateDeadlines(SAMPLE_PROFILE, TODAY);
     expect(owned.some((item) => item.ruleId === "us-5472")).toBe(true);
     const domestic = generateDeadlines(
@@ -41,6 +41,11 @@ describe("generateDeadlines", () => {
       TODAY,
     );
     expect(domestic.some((item) => item.ruleId === "us-5472")).toBe(false);
+    const noTx = generateDeadlines(
+      { ...SAMPLE_PROFILE, reportableRelatedPartyTransactions: false },
+      TODAY,
+    );
+    expect(noTx.some((item) => item.ruleId === "us-5472")).toBe(false);
   });
 
   it("keeps the statutory Delaware March 1 date on a Sunday", () => {
@@ -166,7 +171,15 @@ describe("generateDeadlines", () => {
         (rule) => rule.rollConvention === "none",
       ),
     ).toBe(true);
-    expect(DEADLINE_RULES.every((rule) => rule.verified === false)).toBe(true);
+    expect(DEADLINE_RULES.find((rule) => rule.id === "de-franchise-annual")?.status).toBe(
+      "verified",
+    );
+    expect(DEADLINE_RULES.find((rule) => rule.id === "in-fla")?.status).toBe(
+      "reviewed",
+    );
+    expect(DEADLINE_RULES.find((rule) => rule.id === "in-agm")?.status).toBe(
+      "unverified",
+    );
   });
 
   it("does not use an effective date for sorting or chips", () => {
@@ -180,9 +193,10 @@ describe("generateDeadlines", () => {
       schedule: { kind: "fixed", month: 1, day: 31 },
       whatThisIs: "Test",
       ifMissed: "Test",
-      sourceUrl: "https://example.com",
-      verified: false,
-      lastVerified: null,
+      sources: ["https://example.com"],
+      status: "unverified",
+      lastChecked: null,
+      notes: "",
       rollConvention: "none",
     };
     const items = generateDeadlines(
@@ -195,12 +209,32 @@ describe("generateDeadlines", () => {
     expect(items[0]?.effectiveDate).toBeNull();
   });
 
-  it("places Form 1120 on the 15th of the 4th month after US year end", () => {
+  it("places Form 1120 on April 15 after a December 31 year end", () => {
     const items = generateDeadlines(SAMPLE_PROFILE, { year: 2026, month: 1, day: 2 });
     const form = items.find(
       (item) => item.ruleId === "us-1120" && item.date.year === 2026,
     );
     expect(form?.isoDate).toBe("2026-04-15");
+    const related = items.find(
+      (item) => item.ruleId === "us-5472" && item.date.year === 2026,
+    );
+    expect(related?.isoDate).toBe("2026-04-15");
+  });
+
+  it("places Form 1120 on September 15 after a June 30 year end", () => {
+    const profile = {
+      ...SAMPLE_PROFILE,
+      usTaxYearEnd: { month: 6, day: 30 },
+    };
+    const items = generateDeadlines(profile, { year: 2026, month: 1, day: 2 });
+    const form = items.find(
+      (item) => item.ruleId === "us-1120" && item.isoDate.startsWith("2026"),
+    );
+    expect(form?.isoDate).toBe("2026-09-15");
+    const related = items.find(
+      (item) => item.ruleId === "us-5472" && item.isoDate.startsWith("2026"),
+    );
+    expect(related?.isoDate).toBe("2026-09-15");
   });
 
   it("computes AGM then AOC-4 / MGT-7 as relative dates", () => {
@@ -226,12 +260,88 @@ describe("generateDeadlines", () => {
     );
   });
 
-  it("emits one DIR-3 KYC per director", () => {
-    const items = generateDeadlines(SAMPLE_PROFILE, { year: 2026, month: 8, day: 1 });
+  it("emits one DIR-3 KYC per director on 30 June after the third FY", () => {
+    const items = generateDeadlines(SAMPLE_PROFILE, {
+      year: 2028,
+      month: 1,
+      day: 15,
+    });
     const kyc = items.filter(
-      (item) => item.ruleId === "in-dir3-kyc" && item.date.year === 2026,
+      (item) => item.ruleId === "in-dir3-kyc" && item.isoDate === "2028-06-30",
     );
-    expect(kyc).toHaveLength(2);
+    expect(kyc.map((item) => item.title)).toEqual([
+      "DIR-3 KYC — Director 1",
+      "DIR-3 KYC — Director 2",
+    ]);
+
+    const laterAllotment = generateDeadlines(
+      {
+        ...SAMPLE_PROFILE,
+        india: {
+          ...SAMPLE_PROFILE.india!,
+          directorDinFyEnds: [2026, 2026],
+        },
+      },
+      { year: 2029, month: 1, day: 15 },
+    );
+    expect(
+      laterAllotment.filter(
+        (item) => item.ruleId === "in-dir3-kyc" && item.isoDate === "2029-06-30",
+      ),
+    ).toHaveLength(2);
+
+    const fy2627 = generateDeadlines(
+      {
+        ...SAMPLE_PROFILE,
+        india: {
+          ...SAMPLE_PROFILE.india!,
+          directorDinFyEnds: [2027],
+          directorCount: 1,
+        },
+      },
+      { year: 2030, month: 1, day: 15 },
+    );
+    expect(
+      fy2627.find((item) => item.ruleId === "in-dir3-kyc")?.isoDate,
+    ).toBe("2030-06-30");
+  });
+
+  it("moves the company ITR to 30 November when Form 3CEB applies", () => {
+    const withTp = generateDeadlines(SAMPLE_PROFILE, {
+      year: 2026,
+      month: 9,
+      day: 1,
+    });
+    expect(
+      withTp.find((item) => item.ruleId === "in-itr" && item.date.year === 2026)
+        ?.isoDate,
+    ).toBe("2026-11-30");
+    expect(
+      withTp.some(
+        (item) => item.ruleId === "in-3ceb" && item.isoDate === "2026-10-31",
+      ),
+    ).toBe(true);
+
+    const noTp = generateDeadlines(
+      {
+        ...SAMPLE_PROFILE,
+        india: { ...SAMPLE_PROFILE.india!, transactsWithUsParent: false },
+      },
+      { year: 2026, month: 9, day: 1 },
+    );
+    expect(
+      noTp.find((item) => item.ruleId === "in-itr" && item.date.year === 2026)
+        ?.isoDate,
+    ).toBe("2026-10-31");
+    expect(noTp.some((item) => item.ruleId === "in-3ceb")).toBe(false);
+  });
+
+  it("places the ODI APR on 31 December", () => {
+    const items = generateDeadlines(SAMPLE_PROFILE, TODAY);
+    expect(
+      items.find((item) => item.ruleId === "in-odi-apr" && item.date.year === 2026)
+        ?.isoDate,
+    ).toBe("2026-12-31");
   });
 
   it("can include overdue items with a lookback window", () => {
@@ -271,9 +381,16 @@ describe("generateDeadlines", () => {
     expect(custom?.appliesLabel).toBe("From your document");
   });
 
-  it("marks every generated rule as unverified", () => {
-    expect(DEADLINE_RULES.every((rule) => rule.verified === false)).toBe(true);
+  it("copies verification status from each rule", () => {
     const items = generateDeadlines(SAMPLE_PROFILE, TODAY);
-    expect(items.every((item) => item.verified === false)).toBe(true);
+    expect(
+      items.find((item) => item.ruleId === "us-1120")?.verificationStatus,
+    ).toBe("verified");
+    expect(
+      items.find((item) => item.ruleId === "in-odi-apr")?.verificationStatus,
+    ).toBe("reviewed");
+    expect(
+      items.find((item) => item.ruleId === "in-gstr1")?.verificationStatus,
+    ).toBe("unverified");
   });
 });

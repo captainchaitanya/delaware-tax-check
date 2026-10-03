@@ -1,5 +1,5 @@
 import { MathDetails } from "./MathDetails";
-import { UnverifiedBadge } from "@/components/ui/Badge";
+import { VerificationBadge } from "@/components/ui/Badge";
 import { formatUsd } from "@/lib/format";
 import type { CompareResult, FranchiseTaxInput } from "@/lib/franchiseTax";
 import { selectResultsPresentation } from "@/lib/resultsPresentation";
@@ -29,7 +29,7 @@ export function ResultsPanel({ input, result }: ResultsPanelProps) {
           >
             {view.heading}
           </h2>
-          {TAX_CONFIG.verified ? null : <UnverifiedBadge />}
+          <VerificationBadge status={TAX_CONFIG.status} />
         </div>
         {view.intro ? <p className="text-sm text-muted">{view.intro}</p> : null}
         {view.variant === "alreadyLowest" && view.subline ? (

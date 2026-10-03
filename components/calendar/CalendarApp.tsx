@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useAppState } from "@/components/app/AppState";
-import { Badge, UnverifiedBadge } from "@/components/ui/Badge";
+import { Badge, VerificationBadge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -110,8 +110,8 @@ export function CalendarApp() {
             Calendar
           </h1>
           <p className="mt-2 max-w-xl text-sm leading-6 text-muted">
-            Candidate dates for the next 12 months. Every date is unverified
-            until you check the official source.
+            Candidate dates for the next 12 months. Check the badge on each
+            item before you treat a date as final.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -291,7 +291,7 @@ function DeadlineRow({
       <div className="flex flex-col items-end gap-1">
         <StatusChip status={item.status} done={done} />
         {item.origin === "document" ? <Badge>From your document</Badge> : null}
-        {item.verified ? null : <UnverifiedBadge />}
+        <VerificationBadge status={item.verificationStatus} />
       </div>
     </button>
   );
@@ -548,7 +548,7 @@ function DeadlineDrawer({
         <div className="mt-3 flex flex-wrap gap-2">
           <StatusChip status={item.status} done={draftDone} />
           {item.origin === "document" ? <Badge>From your document</Badge> : null}
-          <UnverifiedBadge />
+          <VerificationBadge status={item.verificationStatus} />
         </div>
         {custom ? (
           <div className="mt-5 flex flex-col gap-3">
@@ -584,16 +584,27 @@ function DeadlineDrawer({
             <span className="font-medium">If missed. </span>
             {item.ifMissed}
           </p>
-          {item.sourceUrl ? (
+          {item.notes ? (
             <p>
-              <a
-                href={item.sourceUrl}
-                className="text-accent underline underline-offset-4"
-                target="_blank"
-                rel="noreferrer"
-              >
-                Official source
-              </a>
+              <span className="font-medium">Note. </span>
+              {item.notes}
+            </p>
+          ) : null}
+          {item.sources.length > 0 ? (
+            <p>
+              {item.sources.map((href, index) => (
+                <span key={href}>
+                  {index > 0 ? " · " : null}
+                  <a
+                    href={href}
+                    className="text-accent underline underline-offset-4"
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    {index === 0 ? "Official source" : `Source ${index + 1}`}
+                  </a>
+                </span>
+              ))}
             </p>
           ) : null}
         </div>
